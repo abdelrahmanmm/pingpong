@@ -18,32 +18,6 @@ const GameInstructions = () => {
     };
   }, []);
 
-  const ControlsContent = () => (
-    <ul className="list-disc ml-5 space-y-2 text-sm mt-4">
-      {isMobile ? (
-        <li>Swipe up/down on the game area to move your paddle</li>
-      ) : (
-        <>
-          <li>Use mouse movement up/down to control your paddle</li>
-          <li>Arrow keys (Up/Down) or W/S keys to move paddle</li>
-          <li>Space bar to start, pause, or restart the game</li>
-        </>
-      )}
-      <li className="text-cyan-500">Click anywhere on the game to start</li>
-    </ul>
-  );
-  
-  const RulesContent = () => (
-    <ul className="list-disc ml-5 space-y-2 text-sm mt-4">
-      <li>First player to reach 5 points wins</li>
-      <li>Score by getting the ball past your opponent's paddle</li>
-      <li>The ball speed increases after each hit</li>
-      <li>The computer's difficulty adjusts based on the score</li>
-      <li>The ball angle changes based on where it hits your paddle</li>
-      <li>Hit the ball with the edge of your paddle for a steeper angle</li>
-    </ul>
-  );
-
   return (
     <div className="mt-6 w-full flex justify-center gap-4">
       <Dialog>
@@ -59,7 +33,18 @@ const GameInstructions = () => {
               How to control the game
             </DialogDescription>
           </DialogHeader>
-          <ControlsContent />
+          <ul className="list-disc ml-5 space-y-2 text-sm mt-4">
+            {isMobile ? (
+              <li>Swipe up/down on the game area to move your paddle</li>
+            ) : (
+              <>
+                <li>Use mouse movement up/down to control your paddle</li>
+                <li>Arrow keys (Up/Down) or W/S keys to move paddle</li>
+                <li>Space bar to start, pause, or restart the game</li>
+              </>
+            )}
+            <li className="text-cyan-500">Click anywhere on the game to start</li>
+          </ul>
         </DialogContent>
       </Dialog>
       
@@ -76,7 +61,14 @@ const GameInstructions = () => {
               How the game works
             </DialogDescription>
           </DialogHeader>
-          <RulesContent />
+          <ul className="list-disc ml-5 space-y-2 text-sm mt-4">
+            <li>First player to reach 5 points wins</li>
+            <li>Score by getting the ball past your opponent's paddle</li>
+            <li>The ball speed increases after each hit</li>
+            <li>The computer's difficulty adjusts based on the score</li>
+            <li>The ball angle changes based on where it hits your paddle</li>
+            <li>Hit the ball with the edge of your paddle for a steeper angle</li>
+          </ul>
         </DialogContent>
       </Dialog>
     </div>
