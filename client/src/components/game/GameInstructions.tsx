@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useEffect, useState } from "react";
 
 /**
@@ -28,6 +28,48 @@ const GameInstructions = () => {
     };
   }, []);
 
+  // Define content directly in JSX for better debugging
+  const controlsContent = (
+    <div className="text-black font-semibold">
+      <div className="mb-4 bg-blue-100 p-3 rounded">
+        <h3 className="text-blue-700 font-bold text-lg mb-2">Movement:</h3>
+        {isMobile ? (
+          <p className="text-blue-800">• Swipe up/down on the game area to move your paddle</p>
+        ) : (
+          <>
+            <p className="text-blue-800">• Mouse: Move up/down to control your paddle</p>
+            <p className="text-blue-800">• Keyboard: Arrow Keys (Up/Down) or W/S keys</p>
+          </>
+        )}
+      </div>
+      
+      <div className="bg-green-100 p-3 rounded">
+        <h3 className="text-green-700 font-bold text-lg mb-2">Game Actions:</h3>
+        <p className="text-green-800">• Click anywhere or press Space to start the game</p>
+        <p className="text-green-800">• Press Space to pause/resume during gameplay</p>
+        <p className="text-green-800">• Click or press Space to restart after game over</p>
+      </div>
+    </div>
+  );
+  
+  const rulesContent = (
+    <div className="text-black font-semibold">
+      <div className="mb-4 bg-purple-100 p-3 rounded">
+        <h3 className="text-purple-700 font-bold text-lg mb-2">Scoring:</h3>
+        <p className="text-purple-800">• First player to reach 5 points wins</p>
+        <p className="text-purple-800">• Score by getting the ball past your opponent's paddle</p>
+      </div>
+      
+      <div className="bg-amber-100 p-3 rounded">
+        <h3 className="text-amber-700 font-bold text-lg mb-2">Gameplay:</h3>
+        <p className="text-amber-800">• The ball speed increases after each hit</p>
+        <p className="text-amber-800">• The computer's difficulty adjusts based on the score</p>
+        <p className="text-amber-800">• Ball angle changes based on where it hits your paddle</p>
+        <p className="text-amber-800">• Hit with the edge of your paddle for steeper angles</p>
+      </div>
+    </div>
+  );
+
   return (
     <div className="mt-6 w-full flex justify-center gap-4">
       {/* Controls Dialog */}
@@ -39,29 +81,9 @@ const GameInstructions = () => {
         </DialogTrigger>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Game Controls</DialogTitle>
-            <DialogDescription>
-              How to control the game
-            </DialogDescription>
+            <DialogTitle className="text-xl text-blue-600">Game Controls</DialogTitle>
           </DialogHeader>
-          <div className="mt-4 space-y-4">
-            <h3 className="font-medium">Movement:</h3>
-            {isMobile ? (
-              <p>• Swipe up/down on the game area to move your paddle</p>
-            ) : (
-              <div className="space-y-2">
-                <p>• Mouse: Move up/down to control your paddle</p>
-                <p>• Keyboard: Arrow Keys (Up/Down) or W/S keys</p>
-              </div>
-            )}
-            
-            <h3 className="font-medium">Game Actions:</h3>
-            <div className="space-y-2">
-              <p>• Click anywhere or press Space to start the game</p>
-              <p>• Press Space to pause/resume during gameplay</p>
-              <p>• Click or press Space to restart after game over</p>
-            </div>
-          </div>
+          {controlsContent}
         </DialogContent>
       </Dialog>
       
@@ -74,26 +96,9 @@ const GameInstructions = () => {
         </DialogTrigger>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Game Rules</DialogTitle>
-            <DialogDescription>
-              How the game works
-            </DialogDescription>
+            <DialogTitle className="text-xl text-purple-600">Game Rules</DialogTitle>
           </DialogHeader>
-          <div className="mt-4 space-y-4">
-            <h3 className="font-medium">Scoring:</h3>
-            <div className="space-y-2">
-              <p>• First player to reach 5 points wins</p>
-              <p>• Score by getting the ball past your opponent's paddle</p>
-            </div>
-            
-            <h3 className="font-medium">Gameplay:</h3>
-            <div className="space-y-2">
-              <p>• The ball speed increases after each hit</p>
-              <p>• The computer's difficulty adjusts based on the score</p>
-              <p>• Ball angle changes based on where it hits your paddle</p>
-              <p>• Hit with the edge of your paddle for steeper angles</p>
-            </div>
-          </div>
+          {rulesContent}
         </DialogContent>
       </Dialog>
     </div>
