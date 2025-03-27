@@ -254,19 +254,10 @@ export const usePingPong = create<PingPongState>((set, get) => {
           audio.playHit();
         }
         
-        // Check if ball goes beyond paddles (scoring)
-        if (newBallX - state.ballSize / 2 <= 0) {
-          // Computer scores
-          return {
-            ...state,
-            ballX: newBallX,
-            ballY: newBallY,
-            ballSpeedX: newBallSpeedX,
-            ballSpeedY: newBallSpeedY,
-            computerPaddleY: newComputerPaddleY,
-          };
-        } else if (newBallX + state.ballSize / 2 >= state.canvasWidth) {
-          // Player scores
+        // Check if ball goes beyond paddles but DON'T handle scoring here
+        // Scoring is handled separately after this update to ensure state consistency
+        if (newBallX - state.ballSize / 2 <= 0 || newBallX + state.ballSize / 2 >= state.canvasWidth) {
+          // Just update positions, scoring will be handled in the check after this function
           return {
             ...state,
             ballX: newBallX,
@@ -289,10 +280,22 @@ export const usePingPong = create<PingPongState>((set, get) => {
       
       // Check for scoring after updating positions
       const state = get();
+      
+      // Computer scores when ball passes left edge
       if (state.ballX - state.ballSize / 2 <= 0) {
-        get().scorePoint("computer");
-      } else if (state.ballX + state.ballSize / 2 >= state.canvasWidth) {
-        get().scorePoint("player");
+        // Only score if the game is in progress
+        if (state.isGameStarted && !state.isGameOver && !state.isPaused) {
+          console.log("Computer scored a point");
+          get().scorePoint("computer");
+        }
+      } 
+      // Player scores when ball passes right edge
+      else if (state.ballX + state.ballSize / 2 >= state.canvasWidth) {
+        // Only score if the game is in progress
+        if (state.isGameStarted && !state.isGameOver && !state.isPaused) {
+          console.log("Player scored a point");
+          get().scorePoint("player");
+        }
       }
     },
 
@@ -352,22 +355,32 @@ export const usePingPong = create<PingPongState>((set, get) => {
         let isGameOver = state.isGameOver;
         let winner = state.winner;
         
+        // Immediately pause the ball by placing it in the center
+        // This prevents multiple scoring events while we wait for the reset
+        const ballX = state.canvasWidth / 2;
+        const ballY = state.canvasHeight / 2;
+        const ballSpeedX = 0; // Temporarily stop the ball
+        const ballSpeedY = 0;
+        
         if (player === "player") {
           playerScore += 1;
+          console.log(`Player score is now: ${playerScore}`);
           if (playerScore >= state.pointsToWin) {
             isGameOver = true;
             winner = "player";
           }
         } else {
           computerScore += 1;
+          console.log(`Computer score is now: ${computerScore}`);
           if (computerScore >= state.pointsToWin) {
             isGameOver = true;
             winner = "computer";
           }
         }
         
-        // If game continues, reset ball
+        // If game continues, reset ball after a short delay
         if (!isGameOver) {
+          // Use a slight delay to create a visual pause between points
           setTimeout(() => get().resetBall(), 1000);
         }
         
@@ -376,6 +389,10 @@ export const usePingPong = create<PingPongState>((set, get) => {
           computerScore,
           isGameOver,
           winner,
+          ballX,
+          ballY,
+          ballSpeedX,
+          ballSpeedY
         };
       });
     },
