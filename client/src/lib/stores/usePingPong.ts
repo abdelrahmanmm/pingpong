@@ -40,6 +40,8 @@ interface PingPongState {
   isGameOver: boolean;         // Whether the game has ended
   isPaused: boolean;           // Whether the game is currently paused
   winner: GameWinner;          // Who won the game, if it's over
+  frameCount: number;          // Counter used for timing certain actions
+  lastRandomOffset: number | null; // Last random offset used for computer paddle (smoother movement)
   
   // Game settings
   pointsToWin: number;         // Points needed to win the game
@@ -105,6 +107,8 @@ export const usePingPong = create<PingPongState>((set, get) => {
     isGameOver: false,
     isPaused: false,
     winner: null,
+    frameCount: 0,
+    lastRandomOffset: null,
     
     // Game settings
     pointsToWin: 5,
@@ -114,7 +118,7 @@ export const usePingPong = create<PingPongState>((set, get) => {
     // Difficulty settings
     currentLevel: 1 as DifficultyLevel,
     maxLevel: 5 as DifficultyLevel,
-    computerBaseSpeed: 4,
+    computerBaseSpeed: 3, // Reduced from 4 to make beginner more manageable
     computerSpeedMultiplier: 1,
     predictionAccuracy: 0.5,
 
@@ -206,10 +210,19 @@ export const usePingPong = create<PingPongState>((set, get) => {
             ((state.canvasWidth - newBallX) / newBallSpeedX) * currentAccuracy);
           
           // Add some randomness at lower difficulty levels
-          const randomFactor = Math.max(0, (1 - currentAccuracy) * 20);
-          const randomOffset = randomFactor > 0 
-            ? (Math.random() * randomFactor - randomFactor/2) 
-            : 0;
+          // Higher randomness for beginner level to make it more forgiving
+          const randomFactor = state.currentLevel === 1 
+            ? 30 // Much more randomness for beginner
+            : Math.max(0, (1 - currentAccuracy) * 20);
+          
+          // Apply random offset that's updated only occasionally for smoother movement
+          // This helps reduce the paddle jittering when following the ball
+          if (state.frameCount % 30 === 0 || !state.lastRandomOffset) {
+            state.lastRandomOffset = randomFactor > 0 
+              ? (Math.random() * randomFactor - randomFactor/2) 
+              : 0;
+          }
+          const randomOffset = state.lastRandomOffset;
           
           // Clamp the prediction to canvas bounds
           computerPaddleTarget = Math.max(
@@ -223,16 +236,25 @@ export const usePingPong = create<PingPongState>((set, get) => {
         let newComputerPaddleY = state.computerPaddleY;
         
         // Move computer paddle toward target with current speed
-        if (computerPaddleTarget > state.computerPaddleY) {
-          newComputerPaddleY = Math.min(
-            computerPaddleTarget, 
-            state.computerPaddleY + computerPaddleSpeed
-          );
-        } else if (computerPaddleTarget < state.computerPaddleY) {
-          newComputerPaddleY = Math.max(
-            computerPaddleTarget, 
-            state.computerPaddleY - computerPaddleSpeed
-          );
+        // Only move if the distance is significant (add a small deadzone to prevent jitter)
+        const distanceToTarget = Math.abs(computerPaddleTarget - state.computerPaddleY);
+        const deadzone = 2; // Pixels of deadzone to prevent small jittery movements
+        
+        if (distanceToTarget > deadzone) {
+          if (computerPaddleTarget > state.computerPaddleY) {
+            newComputerPaddleY = Math.min(
+              computerPaddleTarget, 
+              state.computerPaddleY + computerPaddleSpeed
+            );
+          } else if (computerPaddleTarget < state.computerPaddleY) {
+            newComputerPaddleY = Math.max(
+              computerPaddleTarget, 
+              state.computerPaddleY - computerPaddleSpeed
+            );
+          }
+        } else {
+          // Within deadzone - hold position to prevent jitter
+          newComputerPaddleY = state.computerPaddleY;
         }
         
         // Ball collision with player paddle (left side)
@@ -298,16 +320,18 @@ export const usePingPong = create<PingPongState>((set, get) => {
             ballSpeedX: newBallSpeedX,
             ballSpeedY: newBallSpeedY,
             computerPaddleY: newComputerPaddleY,
+            frameCount: state.frameCount + 1,
           };
         }
         
-        // If no scoring happened, just update positions
+        // If no scoring happened, just update positions and increment frame count
         return {
           ballX: newBallX,
           ballY: newBallY,
           ballSpeedX: newBallSpeedX,
           ballSpeedY: newBallSpeedY,
           computerPaddleY: newComputerPaddleY,
+          frameCount: state.frameCount + 1, // Increment frame counter for timing events
         };
       });
       
@@ -355,6 +379,8 @@ export const usePingPong = create<PingPongState>((set, get) => {
         currentLevel: 1 as DifficultyLevel,
         computerSpeedMultiplier: 1,
         predictionAccuracy: 0.5,
+        frameCount: 0,
+        lastRandomOffset: null,
       });
       get().resetBall();
     },
