@@ -6,29 +6,53 @@ import path from 'path';
 console.log('Creating GitHub Pages build configuration...');
 
 // 1. Build the client-side app
-console.log('Building client app...');
-execSync('npx vite build --base=./');
+console.log('Building client app using GitHub Pages configuration...');
+try {
+  // Use our GitHub Pages specific configuration
+  execSync('npx vite build --config vite.config.gh-pages.ts', { stdio: 'inherit' });
+  console.log('Build completed successfully');
+} catch (error) {
+  console.error('Build failed with error:', error.message);
+  process.exit(1);
+}
 
 // 2. Copy the index.html to the root of the dist folder
 console.log('Setting up dist folder...');
 
-// 3. Make sure public/sounds are copied correctly
-const soundsDir = path.join(process.cwd(), 'dist', 'sounds');
-if (!fs.existsSync(soundsDir)) {
-  fs.mkdirSync(soundsDir, { recursive: true });
+// 3. Make sure all static assets are copied correctly
+// Function to copy directory contents recursively
+function copyDir(src, dest) {
+  if (!fs.existsSync(dest)) {
+    fs.mkdirSync(dest, { recursive: true });
+  }
+  
+  const entries = fs.readdirSync(src, { withFileTypes: true });
+  
+  for (const entry of entries) {
+    const srcPath = path.join(src, entry.name);
+    const destPath = path.join(dest, entry.name);
+    
+    if (entry.isDirectory()) {
+      copyDir(srcPath, destPath);
+    } else {
+      fs.copyFileSync(srcPath, destPath);
+    }
+  }
 }
 
-// Copy sound files if they exist in public/sounds
-const publicSoundsDir = path.join(process.cwd(), 'client', 'public', 'sounds');
-if (fs.existsSync(publicSoundsDir)) {
-  const soundFiles = fs.readdirSync(publicSoundsDir);
-  soundFiles.forEach(file => {
-    const srcPath = path.join(publicSoundsDir, file);
-    const destPath = path.join(soundsDir, file);
-    fs.copyFileSync(srcPath, destPath);
-  });
-  console.log('Sound files copied to dist/sounds');
-}
+// List of asset directories to copy
+const assetDirs = ['sounds', 'textures', 'fonts', 'geometries'];
+
+// Copy each asset directory
+assetDirs.forEach(dir => {
+  const srcDir = path.join(process.cwd(), 'client', 'public', dir);
+  const destDir = path.join(process.cwd(), 'dist', dir);
+  
+  if (fs.existsSync(srcDir)) {
+    copyDir(srcDir, destDir);
+    console.log(`${dir} files copied to dist/${dir}`);
+  }
+});
 
 // 4. Create a 404.html that redirects to index.html for SPA routing
 const notFoundContent = `
