@@ -63,8 +63,10 @@ interface PingPongState {
   togglePause: () => void;                     // Pause or resume the game
   scorePoint: (player: "player" | "computer") => void; // Add point to player/computer
   levelUp: () => void;                         // Increase the difficulty level
+  setDifficultyLevel: (level: DifficultyLevel) => void; // Manually set the difficulty level
   getComputerPaddleSpeed: () => number;        // Calculate current computer paddle speed
   getDifficultyName: () => string;             // Get the name of the current difficulty level
+  getAllDifficultyLevels: () => {level: DifficultyLevel, name: string}[]; // Get all available difficulty levels
 }
 
 export const usePingPong = create<PingPongState>((set, get) => {
@@ -480,6 +482,42 @@ export const usePingPong = create<PingPongState>((set, get) => {
         5: "Expert"
       };
       return difficultyNames[level] || "Unknown";
+    },
+    
+    // Manually set the difficulty level
+    setDifficultyLevel: (level: DifficultyLevel) => {
+      set((state) => {
+        console.log(`Manually setting difficulty to level ${level}`);
+        
+        // Define settings for each difficulty level
+        const difficultySettings = {
+          1: { speedMultiplier: 1.0, predictionAccuracy: 0.5 },   // Beginner
+          2: { speedMultiplier: 1.25, predictionAccuracy: 0.6 },  // Easy
+          3: { speedMultiplier: 1.5, predictionAccuracy: 0.7 },   // Medium
+          4: { speedMultiplier: 1.75, predictionAccuracy: 0.85 }, // Hard
+          5: { speedMultiplier: 2.0, predictionAccuracy: 0.95 },  // Expert
+        };
+        
+        // Get settings for the selected level
+        const settings = difficultySettings[level] || difficultySettings[1];
+        
+        return {
+          currentLevel: level,
+          computerSpeedMultiplier: settings.speedMultiplier,
+          predictionAccuracy: settings.predictionAccuracy
+        };
+      });
+    },
+    
+    // Get all available difficulty levels for selection UI
+    getAllDifficultyLevels: () => {
+      return [
+        { level: 1 as DifficultyLevel, name: "Beginner" },
+        { level: 2 as DifficultyLevel, name: "Easy" },
+        { level: 3 as DifficultyLevel, name: "Medium" },
+        { level: 4 as DifficultyLevel, name: "Hard" },
+        { level: 5 as DifficultyLevel, name: "Expert" }
+      ];
     },
   };
 });

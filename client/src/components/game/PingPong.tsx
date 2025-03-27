@@ -4,6 +4,7 @@ import { useAudio } from "@/lib/stores/useAudio";
 import GameControls from "./GameControls";
 import GameInstructions from "./GameInstructions";
 import ScoreDisplay from "./ScoreDisplay";
+import DifficultySelector from "./DifficultySelector";
 
 /**
  * Main Ping Pong Game Component
@@ -312,6 +313,9 @@ const PingPong = () => {
   return (
     <div className="flex flex-col items-center w-full max-w-4xl px-4">
       <ScoreDisplay playerScore={playerScore} computerScore={computerScore} />
+      
+      {/* Difficulty selector - Only shown before game starts or when game is over */}
+      {(!isGameStarted || isGameOver) && <DifficultySelector />}
       
       <div className="relative w-full aspect-[4/3] max-h-[70vh] rounded-lg overflow-hidden border-4 border-gray-900 shadow-lg">
         <canvas
