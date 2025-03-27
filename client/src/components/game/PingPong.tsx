@@ -5,6 +5,18 @@ import GameControls from "./GameControls";
 import GameInstructions from "./GameInstructions";
 import ScoreDisplay from "./ScoreDisplay";
 
+/**
+ * Main Ping Pong Game Component
+ * 
+ * Handles the game canvas, rendering, user interaction, and coordinates
+ * the overall game experience. This component is responsible for:
+ * - Rendering the game elements (paddles, ball, UI messages)
+ * - Handling user input (mouse, touch, keyboard)
+ * - Managing audio (connecting game events to sounds)
+ * - Coordinating responsive sizing for different devices
+ * 
+ * @returns The complete ping pong game interface
+ */
 const PingPong = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -36,53 +48,72 @@ const PingPong = () => {
 
   const { setHitSound, setSuccessSound, setBackgroundMusic } = useAudio();
 
+  /**
+   * Component initialization effect
+   * - Loads and configures audio assets
+   * - Initializes game dimensions based on screen size
+   * - Sets up window resize handler for responsive layout
+   */
   useEffect(() => {
     // Initialize audio with error handling
     const hitSfx = new Audio("/sounds/hit.mp3");
     const successSfx = new Audio("/sounds/success.mp3");
     const backgroundMusic = new Audio("/sounds/background.mp3");
     
-    // Handle loading errors
+    // Handle loading errors for better debugging
     hitSfx.onerror = () => console.error("Failed to load hit sound");
     successSfx.onerror = () => console.error("Failed to load success sound");
     backgroundMusic.onerror = () => console.error("Failed to load background music");
     
-    // Configure background music
-    backgroundMusic.loop = true;
-    backgroundMusic.volume = 0.5;
+    // Configure background music properties
+    backgroundMusic.loop = true;          // Music should loop continuously
+    backgroundMusic.volume = 0.5;         // Set to 50% volume to not overpower game sounds
     
-    // Set the audio files in our store
+    // Set the audio files in our global store for access throughout the game
     setHitSound(hitSfx);
     setSuccessSound(successSfx);
     setBackgroundMusic(backgroundMusic);
 
-    // Initialize game dimensions based on screen size
+    // Initialize game dimensions based on current screen size
     initialize();
     setIsInitialized(true);
 
-    // Add window resize listener
+    // Add window resize listener for responsive layout
     const handleResize = () => {
+      // Update our stored window dimensions
       setWindowDimensions({
         width: window.innerWidth,
         height: window.innerHeight,
       });
-      initialize(); // Re-initialize game dimensions on resize
+      // Re-initialize game dimensions to match new screen size
+      initialize();
     };
 
     window.addEventListener("resize", handleResize);
     
+    // Clean up event listeners on component unmount
     return () => {
       window.removeEventListener("resize", handleResize);
     };
   }, [initialize, setHitSound, setSuccessSound, setBackgroundMusic]);
 
-  // Handle rendering the game on canvas
+  /**
+   * Game rendering effect
+   * Handles all canvas drawing operations including:
+   * - Game background and table
+   * - Player and computer paddles
+   * - Ball movement
+   * - Game state messages (start, pause, game over)
+   * 
+   * Rerenders whenever game state or positions change
+   */
   useEffect(() => {
+    // Skip rendering if canvas isn't ready or game isn't initialized
     if (!canvasRef.current || !isInitialized) return;
 
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    if (!ctx) return; // Exit if canvas context cannot be obtained
 
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -183,7 +214,12 @@ const PingPong = () => {
     winner,
   ]);
 
-  // Handle mouse/touch move for paddle control
+  /**
+   * Mouse/Touch movement handler
+   * Controls the player paddle position based on cursor/finger position
+   * Supports both mouse and touch events for cross-device compatibility
+   * @param e - Mouse or Touch event
+   */
   const handleMouseMove = (e: React.MouseEvent | React.TouchEvent) => {
     if (isGameOver || !isGameStarted || isPaused) return;
 
@@ -204,7 +240,13 @@ const PingPong = () => {
     updatePlayerPaddle(relativeY);
   };
 
-  // Handle canvas click to start game
+  /**
+   * Canvas click handler
+   * Manages game state transitions based on clicks:
+   * - Starts a new game when in ready state
+   * - Restarts the game when in game over state
+   * - Handles appropriate audio transitions for each state
+   */
   const handleCanvasClick = () => {
     if (isGameOver) {
       restartGame();
@@ -218,7 +260,13 @@ const PingPong = () => {
     }
   };
 
-  // Handle key presses for game control
+  /**
+   * Keyboard controls effect
+   * Handles all keyboard input for the game:
+   * - Space: Start game, pause/resume, or restart after game over
+   * - Arrow Up/W: Move paddle up
+   * - Arrow Down/S: Move paddle down
+   */
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.code === "Space") {

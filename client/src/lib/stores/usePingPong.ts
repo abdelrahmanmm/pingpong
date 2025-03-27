@@ -1,46 +1,54 @@
 import { create } from "zustand";
 import { useAudio } from "./useAudio";
 
+/**
+ * Represents who won the game, if anyone
+ * null means the game is still in progress
+ */
 type GameWinner = "player" | "computer" | null;
 
+/**
+ * Main state interface for the ping pong game
+ * Contains all game state, settings, and methods needed to control the game
+ */
 interface PingPongState {
   // Game dimensions
-  canvasWidth: number;
-  canvasHeight: number;
-  paddleWidth: number;
-  paddleHeight: number;
-  ballSize: number;
+  canvasWidth: number;         // Width of the game canvas
+  canvasHeight: number;        // Height of the game canvas
+  paddleWidth: number;         // Width of both paddles
+  paddleHeight: number;        // Height of both paddles
+  ballSize: number;            // Diameter of the ball
 
   // Game positions
-  playerPaddleY: number;
-  computerPaddleY: number;
-  ballX: number;
-  ballY: number;
-  ballSpeedX: number;
-  ballSpeedY: number;
+  playerPaddleY: number;       // Y-position of player paddle (left side)
+  computerPaddleY: number;     // Y-position of computer paddle (right side)
+  ballX: number;               // X-position of ball center
+  ballY: number;               // Y-position of ball center
+  ballSpeedX: number;          // Horizontal speed of ball (pixels per frame)
+  ballSpeedY: number;          // Vertical speed of ball (pixels per frame)
 
   // Game state
-  playerScore: number;
-  computerScore: number;
-  isGameStarted: boolean;
-  isGameOver: boolean;
-  isPaused: boolean;
-  winner: GameWinner;
+  playerScore: number;         // Current score of the player
+  computerScore: number;       // Current score of the computer
+  isGameStarted: boolean;      // Whether the game has been started
+  isGameOver: boolean;         // Whether the game has ended
+  isPaused: boolean;           // Whether the game is currently paused
+  winner: GameWinner;          // Who won the game, if it's over
   
   // Game settings
-  pointsToWin: number;
-  initialBallSpeed: number;
-  ballSpeedIncrement: number;
+  pointsToWin: number;         // Points needed to win the game
+  initialBallSpeed: number;    // Starting speed of the ball
+  ballSpeedIncrement: number;  // How much to increase ball speed after each point
   
   // Methods
-  initialize: () => void;
-  updatePlayerPaddle: (y: number) => void;
-  updateGame: () => void;
-  startGame: () => void;
-  restartGame: () => void;
-  resetBall: () => void;
-  togglePause: () => void;
-  scorePoint: (player: "player" | "computer") => void;
+  initialize: () => void;                      // Initialize or reset game dimensions
+  updatePlayerPaddle: (y: number) => void;     // Move the player paddle
+  updateGame: () => void;                      // Update game state for next frame
+  startGame: () => void;                       // Start a new game
+  restartGame: () => void;                     // Restart the game after it ends
+  resetBall: () => void;                       // Reset ball to center with initial speed
+  togglePause: () => void;                     // Pause or resume the game
+  scorePoint: (player: "player" | "computer") => void; // Add point to player/computer
 }
 
 export const usePingPong = create<PingPongState>((set, get) => {
