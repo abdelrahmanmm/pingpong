@@ -1,3 +1,5 @@
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useEffect, useState } from "react";
@@ -18,8 +20,8 @@ const GameInstructions = () => {
     };
   }, []);
 
-  return (
-    <div className="mt-6 p-4 bg-card rounded-lg shadow-md text-card-foreground w-full">
+  const InstructionsContent = () => (
+    <>
       <h2 className="text-xl font-bold mb-2">How to Play</h2>
       <Separator className="mb-4" />
       
@@ -55,6 +57,24 @@ const GameInstructions = () => {
           </ul>
         </TabsContent>
       </Tabs>
+    </>
+  );
+
+  return (
+    <div className="mt-6 w-full flex justify-center">
+      <Dialog>
+        <DialogTrigger asChild>
+          <Button variant="default" size="lg" className="font-bold">
+            How to Play
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Game Instructions</DialogTitle>
+          </DialogHeader>
+          <InstructionsContent />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
