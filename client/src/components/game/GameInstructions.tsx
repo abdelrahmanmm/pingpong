@@ -18,14 +18,14 @@ const GameInstructions = () => {
   }, []);
 
   return (
-    <div className="mt-6 p-4 bg-card rounded-lg shadow-md text-card-foreground w-full">
-      <h2 className="text-xl font-bold mb-2">How to Play</h2>
+    <div className="mt-6 p-4 bg-card rounded-lg shadow-md text-card-foreground w-full max-h-[230px] overflow-y-auto scrollbar-thin scrollbar-thumb-primary scrollbar-track-gray-200">
+      <h2 className="text-xl font-bold mb-2 sticky top-0 bg-card pt-1 pb-2 z-10">How to Play</h2>
       <Separator className="mb-4" />
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-          <h3 className="font-semibold mb-2">Controls</h3>
-          <ul className="list-disc ml-5 space-y-1 text-sm">
+          <h3 className="font-semibold mb-2 text-primary">Controls</h3>
+          <ul className="list-disc ml-5 space-y-2 text-sm">
             {isMobile ? (
               <li>Swipe up/down on the game area to move your paddle</li>
             ) : (
@@ -35,16 +35,19 @@ const GameInstructions = () => {
                 <li>Space bar to start, pause, or restart the game</li>
               </>
             )}
+            <li className="text-cyan-500">Click anywhere on the game to start</li>
           </ul>
         </div>
         
         <div>
-          <h3 className="font-semibold mb-2">Rules</h3>
-          <ul className="list-disc ml-5 space-y-1 text-sm">
+          <h3 className="font-semibold mb-2 text-primary">Rules</h3>
+          <ul className="list-disc ml-5 space-y-2 text-sm">
             <li>First player to reach 5 points wins</li>
             <li>Score by getting the ball past your opponent's paddle</li>
             <li>The ball speed increases after each hit</li>
             <li>The computer's difficulty adjusts based on the score</li>
+            <li>The ball angle changes based on where it hits your paddle</li>
+            <li>Hit the ball with the edge of your paddle for a steeper angle</li>
           </ul>
         </div>
       </div>
