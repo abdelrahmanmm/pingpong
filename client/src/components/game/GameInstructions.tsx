@@ -18,7 +18,7 @@ const GameInstructions = () => {
   }, []);
 
   return (
-    <div className="mt-6 p-4 bg-card rounded-lg shadow-md text-card-foreground w-full max-h-80 overflow-y-auto">
+    <div className="mt-6 p-4 bg-card rounded-lg shadow-md text-card-foreground w-full max-h-[300px] overflow-y-auto scrollbar scrollbar-track-gray-100 scrollbar-thumb-primary scrollbar-w-2">
       <h2 className="text-xl font-bold mb-2">How to Play</h2>
       <Separator className="mb-4" />
       
