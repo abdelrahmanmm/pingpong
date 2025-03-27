@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { usePingPong } from "@/lib/stores/usePingPong";
 import { useAudio } from "@/lib/stores/useAudio";
+import { usePowerUps, PowerUpTarget } from "@/lib/stores/usePowerUps";
 import GameControls from "./GameControls";
 import GameInstructions from "./GameInstructions";
 import ScoreDisplay from "./ScoreDisplay";
 import DifficultySelector from "./DifficultySelector";
+import PowerUpDisplay from "./PowerUpDisplay";
 
 /**
  * Main Ping Pong Game Component
@@ -48,6 +50,20 @@ const PingPong = () => {
   } = usePingPong();
 
   const { setHitSound, setSuccessSound, setBackgroundMusic } = useAudio();
+  
+  // Get power-up functions
+  const { 
+    spawnPowerUp, 
+    spawnedPowerUps, 
+    collectPowerUp, 
+    checkExpiredPowerUps,
+    enablePowerUps,
+    disablePowerUps,
+    getPlayerPaddleHeightMultiplier,
+    getComputerPaddleHeightMultiplier,
+    getBallSpeedMultiplier,
+    getBallOpacity,
+  } = usePowerUps();
 
   /**
    * Component initialization effect
@@ -99,11 +115,51 @@ const PingPong = () => {
   }, [initialize, setHitSound, setSuccessSound, setBackgroundMusic]);
 
   /**
+   * Power-up management effect
+   * - Spawns power-ups at intervals when game is active
+   * - Checks for expired power-ups and removes them
+   */
+  useEffect(() => {
+    // Only manage power-ups when game is active
+    if (!isGameStarted || isGameOver || isPaused) {
+      return;
+    }
+    
+    // Process power-ups every 500ms
+    const powerUpInterval = setInterval(() => {
+      if (canvasRef.current) {
+        // Try to spawn a new power-up
+        spawnPowerUp(canvasRef.current.width, canvasRef.current.height);
+        
+        // Check for expired power-ups
+        checkExpiredPowerUps();
+      }
+    }, 500);
+    
+    return () => {
+      clearInterval(powerUpInterval);
+    };
+  }, [isGameStarted, isGameOver, isPaused, spawnPowerUp, checkExpiredPowerUps]);
+
+  /**
+   * Game state change handler for power-ups
+   * Enables or disables power-ups based on game state
+   */
+  useEffect(() => {
+    if (isGameStarted && !isGameOver) {
+      enablePowerUps();
+    } else if (isGameOver) {
+      disablePowerUps();
+    }
+  }, [isGameStarted, isGameOver, enablePowerUps, disablePowerUps]);
+
+  /**
    * Game rendering effect
    * Handles all canvas drawing operations including:
    * - Game background and table
    * - Player and computer paddles
    * - Ball movement
+   * - Power-ups
    * - Game state messages (start, pause, game over)
    * 
    * Rerenders whenever game state or positions change
@@ -133,29 +189,68 @@ const PingPong = () => {
     ctx.stroke();
     ctx.setLineDash([]);
 
+    // Apply power-up effects to paddle dimensions
+    const playerPaddleHeightWithPowerUps = paddleHeight * getPlayerPaddleHeightMultiplier();
+    const computerPaddleHeightWithPowerUps = paddleHeight * getComputerPaddleHeightMultiplier();
+
     // Draw paddles
     ctx.fillStyle = "#ffffff";
+    
     // Player paddle (left)
     ctx.fillRect(
       0,
-      playerPaddleY - paddleHeight / 2,
+      playerPaddleY - playerPaddleHeightWithPowerUps / 2,
       paddleWidth,
-      paddleHeight
+      playerPaddleHeightWithPowerUps
     );
+    
     // Computer paddle (right)
     ctx.fillRect(
       canvas.width - paddleWidth,
-      computerPaddleY - paddleHeight / 2,
+      computerPaddleY - computerPaddleHeightWithPowerUps / 2,
       paddleWidth,
-      paddleHeight
+      computerPaddleHeightWithPowerUps
     );
 
-    // Draw ball
+    // Draw power-ups
+    spawnedPowerUps.forEach((powerUp) => {
+      ctx.beginPath();
+      ctx.arc(powerUp.x, powerUp.y, powerUp.radius, 0, Math.PI * 2);
+      ctx.fillStyle = powerUp.color;
+      ctx.fill();
+      
+      // Add a pulsing glow effect to power-ups
+      const time = Date.now() * 0.001; // Convert to seconds for smoother animation
+      const pulseSize = 1 + Math.sin(time * 4) * 0.1; // Pulse between 0.9 and 1.1 size
+      
+      ctx.beginPath();
+      ctx.arc(powerUp.x, powerUp.y, powerUp.radius * pulseSize * 1.5, 0, Math.PI * 2);
+      ctx.fillStyle = `${powerUp.color}40`; // Add transparency for glow
+      ctx.fill();
+      
+      // Check if the ball hits a power-up
+      if (isGameStarted && !isGameOver && !isPaused &&
+          Math.sqrt(Math.pow(powerUp.x - ballX, 2) + Math.pow(powerUp.y - ballY, 2)) 
+          <= (powerUp.radius + ballSize / 2)) {
+        // Ball touched the power-up, collect it!
+        const collectedType = collectPowerUp(powerUp.id);
+        if (collectedType) {
+          console.log(`Collected power-up: ${collectedType}`);
+          // Play success sound when power-up is collected
+          useAudio.getState().playSuccess();
+        }
+      }
+    });
+
+    // Draw ball with power-up effects (invisibility)
     if (isGameStarted && !isGameOver && !isPaused) {
+      // Apply ball opacity power-up effect
+      ctx.globalAlpha = getBallOpacity();
       ctx.fillStyle = "#ffffff";
       ctx.beginPath();
       ctx.arc(ballX, ballY, ballSize / 2, 0, Math.PI * 2);
       ctx.fill();
+      ctx.globalAlpha = 1.0; // Reset opacity
     }
 
     // Draw "Start Game" message if not started
@@ -213,6 +308,11 @@ const PingPong = () => {
     isPaused,
     isInitialized,
     winner,
+    spawnedPowerUps,
+    collectPowerUp,
+    getPlayerPaddleHeightMultiplier,
+    getComputerPaddleHeightMultiplier,
+    getBallOpacity,
   ]);
 
   /**
@@ -328,6 +428,9 @@ const PingPong = () => {
           onClick={handleCanvasClick}
         />
         <GameControls />
+        
+        {/* Display active power-ups when game is in progress */}
+        {isGameStarted && !isGameOver && <PowerUpDisplay />}
       </div>
       
       <GameInstructions />

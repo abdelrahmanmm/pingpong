@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { useAudio } from "./useAudio";
+import { usePowerUps } from "./usePowerUps";
 
 /**
  * Represents who won the game, if anyone
@@ -183,10 +184,14 @@ export const usePingPong = create<PingPongState>((set, get) => {
     updateGame: () => {
       set((state) => {
         const audio = useAudio.getState();
+        const powerUps = usePowerUps.getState();
         
-        // Move the ball
-        let newBallX = state.ballX + state.ballSpeedX;
-        let newBallY = state.ballY + state.ballSpeedY;
+        // Apply power-up effects to ball speed
+        const ballSpeedMultiplier = powerUps.getBallSpeedMultiplier();
+        
+        // Move the ball with power-up effects applied
+        let newBallX = state.ballX + (state.ballSpeedX * ballSpeedMultiplier);
+        let newBallY = state.ballY + (state.ballSpeedY * ballSpeedMultiplier);
         let newBallSpeedX = state.ballSpeedX;
         let newBallSpeedY = state.ballSpeedY;
         
@@ -364,6 +369,8 @@ export const usePingPong = create<PingPongState>((set, get) => {
         }
         return { isGameStarted: true };
       });
+      // Enable power-ups when game starts
+      usePowerUps.getState().enablePowerUps();
       get().resetBall();
     },
 
@@ -382,6 +389,9 @@ export const usePingPong = create<PingPongState>((set, get) => {
         frameCount: 0,
         lastRandomOffset: null,
       });
+      // Reset and enable power-ups when restarting
+      usePowerUps.getState().disablePowerUps();
+      usePowerUps.getState().enablePowerUps();
       get().resetBall();
     },
 
@@ -410,6 +420,7 @@ export const usePingPong = create<PingPongState>((set, get) => {
     scorePoint: (player) => {
       set((state) => {
         const audio = useAudio.getState();
+        const powerUps = usePowerUps.getState();
         audio.playSuccess();
         
         let playerScore = state.playerScore;
@@ -437,6 +448,8 @@ export const usePingPong = create<PingPongState>((set, get) => {
           if (playerScore >= state.pointsToWin) {
             isGameOver = true;
             winner = "player";
+            // Disable power-ups when game ends
+            powerUps.disablePowerUps();
           }
         } else {
           computerScore += 1;
@@ -444,6 +457,8 @@ export const usePingPong = create<PingPongState>((set, get) => {
           if (computerScore >= state.pointsToWin) {
             isGameOver = true;
             winner = "computer";
+            // Disable power-ups when game ends
+            powerUps.disablePowerUps();
           }
         }
         
