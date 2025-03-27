@@ -18,11 +18,11 @@ const GameInstructions = () => {
   }, []);
 
   return (
-    <div className="mt-6 p-4 bg-card rounded-lg shadow-md text-card-foreground w-full max-h-80 overflow-y-scroll overflow-x-hidden">
+    <div className="mt-6 p-4 bg-card rounded-lg shadow-md text-card-foreground w-full max-h-80 overflow-y-auto">
       <h2 className="text-xl font-bold mb-2">How to Play</h2>
       <Separator className="mb-4" />
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-2">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-4">
         <div>
           <h3 className="font-semibold mb-2 text-primary">Controls</h3>
           <ul className="list-disc ml-5 space-y-2 text-sm">
