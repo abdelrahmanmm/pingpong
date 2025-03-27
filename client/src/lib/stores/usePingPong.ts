@@ -8,6 +8,12 @@ import { useAudio } from "./useAudio";
 type GameWinner = "player" | "computer" | null;
 
 /**
+ * Difficulty level of the game
+ * Each level increases computer paddle speed and prediction accuracy
+ */
+export type DifficultyLevel = 1 | 2 | 3 | 4 | 5;
+
+/**
  * Main state interface for the ping pong game
  * Contains all game state, settings, and methods needed to control the game
  */
@@ -40,6 +46,13 @@ interface PingPongState {
   initialBallSpeed: number;    // Starting speed of the ball
   ballSpeedIncrement: number;  // How much to increase ball speed after each point
   
+  // Difficulty settings
+  currentLevel: DifficultyLevel;      // Current difficulty level (1-5)
+  maxLevel: DifficultyLevel;          // Maximum level in the game
+  computerBaseSpeed: number;          // Base speed of computer paddle
+  computerSpeedMultiplier: number;    // Speed multiplier based on level
+  predictionAccuracy: number;         // How accurately computer predicts ball trajectory (0-1)
+  
   // Methods
   initialize: () => void;                      // Initialize or reset game dimensions
   updatePlayerPaddle: (y: number) => void;     // Move the player paddle
@@ -49,6 +62,9 @@ interface PingPongState {
   resetBall: () => void;                       // Reset ball to center with initial speed
   togglePause: () => void;                     // Pause or resume the game
   scorePoint: (player: "player" | "computer") => void; // Add point to player/computer
+  levelUp: () => void;                         // Increase the difficulty level
+  getComputerPaddleSpeed: () => number;        // Calculate current computer paddle speed
+  getDifficultyName: () => string;             // Get the name of the current difficulty level
 }
 
 export const usePingPong = create<PingPongState>((set, get) => {
@@ -92,6 +108,13 @@ export const usePingPong = create<PingPongState>((set, get) => {
     pointsToWin: 5,
     initialBallSpeed: 5,
     ballSpeedIncrement: 0.2,
+    
+    // Difficulty settings
+    currentLevel: 1 as DifficultyLevel,
+    maxLevel: 5 as DifficultyLevel,
+    computerBaseSpeed: 4,
+    computerSpeedMultiplier: 1,
+    predictionAccuracy: 0.5,
 
     // Initialize game dimensions based on screen size
     initialize: () => {
@@ -168,37 +191,45 @@ export const usePingPong = create<PingPongState>((set, get) => {
           audio.playHit();
         }
         
-        // Computer AI - move towards the ball with slight delay and limited prediction
+        // Computer AI - move towards the ball with prediction based on difficulty level
         let computerPaddleTarget = state.computerPaddleY;
         
         // Only move computer paddle when ball is moving toward it
         if (state.ballSpeedX > 0) {
-          const difficulty = Math.min(0.6 + (state.playerScore * 0.05), 0.9);
+          // Use the prediction accuracy based on current difficulty level
+          const currentAccuracy = state.predictionAccuracy;
           
-          // Add some prediction based on ball trajectory
+          // Add prediction based on ball trajectory (more accurate at higher levels)
           const predictedY = newBallY + (newBallSpeedY * 
-            ((state.canvasWidth - newBallX) / newBallSpeedX) * difficulty);
+            ((state.canvasWidth - newBallX) / newBallSpeedX) * currentAccuracy);
+          
+          // Add some randomness at lower difficulty levels
+          const randomFactor = Math.max(0, (1 - currentAccuracy) * 20);
+          const randomOffset = randomFactor > 0 
+            ? (Math.random() * randomFactor - randomFactor/2) 
+            : 0;
           
           // Clamp the prediction to canvas bounds
           computerPaddleTarget = Math.max(
             state.paddleHeight / 2,
-            Math.min(state.canvasHeight - state.paddleHeight / 2, predictedY)
+            Math.min(state.canvasHeight - state.paddleHeight / 2, predictedY + randomOffset)
           );
         }
         
-        // Move computer paddle with a maximum speed
-        const maxComputerPaddleSpeed = 5 + (state.playerScore * 0.5);
+        // Calculate the computer paddle speed based on current level
+        const computerPaddleSpeed = state.computerBaseSpeed * state.computerSpeedMultiplier;
         let newComputerPaddleY = state.computerPaddleY;
         
+        // Move computer paddle toward target with current speed
         if (computerPaddleTarget > state.computerPaddleY) {
           newComputerPaddleY = Math.min(
             computerPaddleTarget, 
-            state.computerPaddleY + maxComputerPaddleSpeed
+            state.computerPaddleY + computerPaddleSpeed
           );
         } else if (computerPaddleTarget < state.computerPaddleY) {
           newComputerPaddleY = Math.max(
             computerPaddleTarget, 
-            state.computerPaddleY - maxComputerPaddleSpeed
+            state.computerPaddleY - computerPaddleSpeed
           );
         }
         
@@ -319,6 +350,9 @@ export const usePingPong = create<PingPongState>((set, get) => {
         isGameOver: false,
         isPaused: false,
         winner: null,
+        currentLevel: 1 as DifficultyLevel,
+        computerSpeedMultiplier: 1,
+        predictionAccuracy: 0.5,
       });
       get().resetBall();
     },
@@ -365,6 +399,13 @@ export const usePingPong = create<PingPongState>((set, get) => {
         if (player === "player") {
           playerScore += 1;
           console.log(`Player score is now: ${playerScore}`);
+          
+          // Player just scored - check if we should level up the game
+          if (playerScore > 0 && playerScore % 3 === 0) {
+            // Level up every 3 player points
+            get().levelUp();
+          }
+          
           if (playerScore >= state.pointsToWin) {
             isGameOver = true;
             winner = "player";
@@ -395,6 +436,50 @@ export const usePingPong = create<PingPongState>((set, get) => {
           ballSpeedY
         };
       });
+    },
+    
+    // Increase the difficulty level
+    levelUp: () => {
+      set((state) => {
+        // Don't go beyond max level
+        if (state.currentLevel >= state.maxLevel) {
+          return {};
+        }
+        
+        // Increment level
+        const newLevel = (state.currentLevel + 1) as DifficultyLevel;
+        
+        // Increase computer speed and prediction accuracy
+        const newSpeedMultiplier = state.computerSpeedMultiplier + 0.25;
+        const newPredictionAccuracy = Math.min(0.95, state.predictionAccuracy + 0.1);
+        
+        console.log(`Level up! Now at level ${newLevel}`);
+        
+        return {
+          currentLevel: newLevel,
+          computerSpeedMultiplier: newSpeedMultiplier,
+          predictionAccuracy: newPredictionAccuracy
+        };
+      });
+    },
+    
+    // Get current computer paddle speed based on level
+    getComputerPaddleSpeed: () => {
+      const state = get();
+      return state.computerBaseSpeed * state.computerSpeedMultiplier;
+    },
+    
+    // Get the name of the current difficulty level
+    getDifficultyName: () => {
+      const level = get().currentLevel;
+      const difficultyNames = {
+        1: "Beginner",
+        2: "Easy",
+        3: "Medium", 
+        4: "Hard",
+        5: "Expert"
+      };
+      return difficultyNames[level] || "Unknown";
     },
   };
 });

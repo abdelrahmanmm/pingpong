@@ -60,12 +60,19 @@ const GameInstructions = () => {
         <p className="text-purple-800">• Score by getting the ball past your opponent's paddle</p>
       </div>
       
-      <div className="bg-amber-100 p-3 rounded">
+      <div className="mb-4 bg-amber-100 p-3 rounded">
         <h3 className="text-amber-700 font-bold text-lg mb-2">Gameplay:</h3>
         <p className="text-amber-800">• The ball speed increases after each hit</p>
-        <p className="text-amber-800">• The computer's difficulty adjusts based on the score</p>
         <p className="text-amber-800">• Ball angle changes based on where it hits your paddle</p>
         <p className="text-amber-800">• Hit with the edge of your paddle for steeper angles</p>
+      </div>
+      
+      <div className="bg-orange-100 p-3 rounded">
+        <h3 className="text-orange-700 font-bold text-lg mb-2">Difficulty Levels:</h3>
+        <p className="text-orange-800">• Game starts at <span className="font-bold text-green-700">Beginner</span> level</p>
+        <p className="text-orange-800">• Computer gets faster every 3 points you score</p>
+        <p className="text-orange-800">• 5 levels: Beginner → Easy → Medium → Hard → Expert</p>
+        <p className="text-orange-800">• Each level increases computer paddle speed and accuracy</p>
       </div>
     </div>
   );
