@@ -1,6 +1,6 @@
-import { neon } from "@neondatabase/serverless";
-import { drizzle } from "drizzle-orm/neon-serverless";
-import { migrate } from "drizzle-orm/neon-serverless/migrator";
+import postgres from "postgres";
+import { drizzle } from "drizzle-orm/postgres-js";
+import { migrate } from "drizzle-orm/postgres-js/migrator";
 import * as schema from "../shared/schema";
 
 // Migration script to create database tables
@@ -14,11 +14,12 @@ async function main() {
   }
 
   console.log('Creating SQL connection...');
-  const sql = neon(databaseUrl);
+  const client = postgres(databaseUrl, {
+    max: 10, // Maximum number of connections
+  });
   
   console.log('Creating Drizzle client...');
-  // @ts-ignore - Type compatibility issue with the Neon client
-  const db = drizzle(sql, { schema });
+  const db = drizzle(client, { schema });
 
   console.log('Running migrations...');
   try {
