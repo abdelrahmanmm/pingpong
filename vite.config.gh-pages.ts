@@ -49,6 +49,7 @@ export default defineConfig({
     // Place build output directly in dist rather than dist/public
     outDir: path.resolve(__dirname, "dist"),
     emptyOutDir: true,
+    // Use gh-pages.tsx as the entry point instead of main.tsx
     rollupOptions: {
       // Specify the HTML entry point
       input: {

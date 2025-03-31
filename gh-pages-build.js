@@ -29,11 +29,47 @@ console.log('Creating GitHub Pages build configuration...');
  */
 console.log('Building client app using GitHub Pages configuration...');
 try {
-  // Use GitHub Pages specific configuration
+  // Create temporary build command that modifies the index.html to use gh-pages.tsx instead of main.tsx
+  console.log('Preparing GitHub Pages entry point...');
+  
+  // Create a temporary index.html file that points to gh-pages.tsx
+  const indexHtmlPath = path.join(process.cwd(), 'client', 'index.html');
+  const originalIndexHtml = fs.readFileSync(indexHtmlPath, 'utf8');
+  
+  // Replace main.tsx with gh-pages.tsx in the script tag
+  const ghPagesIndexHtml = originalIndexHtml.replace(
+    /src="\.\/src\/main\.tsx"/,
+    'src="./src/gh-pages.tsx"'
+  );
+  
+  // Create a temporary backup of the original index.html
+  const backupIndexHtmlPath = path.join(process.cwd(), 'client', 'index.html.bak');
+  fs.writeFileSync(backupIndexHtmlPath, originalIndexHtml);
+  
+  // Write the modified index.html
+  fs.writeFileSync(indexHtmlPath, ghPagesIndexHtml);
+  
+  // Now build with the modified index.html
+  console.log('Building with GitHub Pages entry point...');
   execSync('npx vite build --config vite.config.gh-pages.ts', { stdio: 'inherit' });
+  
+  // Restore the original index.html
+  fs.copyFileSync(backupIndexHtmlPath, indexHtmlPath);
+  fs.unlinkSync(backupIndexHtmlPath);
+  
   console.log('Build completed successfully');
 } catch (error) {
   console.error('Build failed with error:', error.message);
+  
+  // Clean up in case of error
+  const indexHtmlPath = path.join(process.cwd(), 'client', 'index.html');
+  const backupIndexHtmlPath = path.join(process.cwd(), 'client', 'index.html.bak');
+  
+  if (fs.existsSync(backupIndexHtmlPath)) {
+    fs.copyFileSync(backupIndexHtmlPath, indexHtmlPath);
+    fs.unlinkSync(backupIndexHtmlPath);
+  }
+  
   process.exit(1);
 }
 
