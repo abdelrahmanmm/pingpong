@@ -1,0 +1,78 @@
+# GitHub Pages Deployment Workflow
+# This workflow automatically builds and deploys the ping pong game to GitHub Pages
+# whenever changes are pushed to the main branch.
+#
+# The workflow consists of two jobs:
+# 1. build: Builds the application using the gh-pages-build.js script
+# 2. deploy: Deploys the built application to GitHub Pages
+#
+# Prerequisites:
+# - Repository must have GitHub Pages enabled in repository settings
+# - GitHub Pages must be configured to deploy from GitHub Actions
+#
+# For more information, see:
+# https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site
+
+name: Deploy to GitHub Pages
+
+# Trigger the workflow on push to main branch
+on:
+  push:
+    branches:
+      - main
+
+# Set required permissions for GitHub Pages deployment
+permissions:
+  contents: read  # Access to repository contents
+  pages: write    # Ability to deploy to GitHub Pages
+  id-token: write # Needed for GitHub Pages deployment
+
+# Prevent concurrent deployments to avoid conflicts
+concurrency:
+  group: "pages"  # Ensures only one active deployment per repository
+  cancel-in-progress: true  # Cancels in-progress deployments when a new one is triggered
+
+jobs:
+  # Job 1: Build the application for GitHub Pages
+  build:
+    runs-on: ubuntu-latest  # Use the latest Ubuntu runner
+    steps:
+      # Step 1: Check out the repository code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Step 2: Set up Node.js environment
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20  # Use Node.js version 20
+
+      # Step 3: Install project dependencies
+      - name: Install dependencies
+        run: npm ci  # Clean install of dependencies
+
+      # Step 4: Build the project using our custom GitHub Pages build script
+      # This script handles special considerations for GitHub Pages deployment
+      - name: Build project for GitHub Pages
+        run: node gh-pages-build.js
+      
+      # Step 5: Upload the built application as an artifact for the deployment job
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist  # Directory containing built application
+
+  # Job 2: Deploy the built application to GitHub Pages
+  deploy:
+    # Configure the deployment environment
+    environment:
+      name: github-pages  # Predefined GitHub Pages environment
+      url: ${{ steps.deployment.outputs.page_url }}  # URL of the deployed site
+    needs: build  # This job depends on the build job
+    runs-on: ubuntu-latest
+    steps:
+      # Deploy to GitHub Pages using GitHub's official action
+      # This action handles the actual deployment process
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
