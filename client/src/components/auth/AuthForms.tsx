@@ -89,11 +89,22 @@ export function AuthForms() {
         setLoginErrors(formattedErrors);
       } else if (error instanceof Response) {
         // Handle API error responses
-        const data = await error.json();
+        const errorText = await error.text(); // First, get the response as text
+        let errorMessage = "Invalid username or password";
+        
+        try {
+          // Try to parse as JSON, but don't fail if it's not valid JSON
+          const data = JSON.parse(errorText);
+          errorMessage = data.error || errorMessage;
+        } catch (e) {
+          // If JSON parsing fails, use the raw text or fallback message
+          errorMessage = errorText || errorMessage;
+        }
+        
         toast({
           variant: "destructive",
           title: "Login failed",
-          description: data.error || "Invalid username or password",
+          description: errorMessage,
         });
       } else {
         // Handle other errors
@@ -145,11 +156,22 @@ export function AuthForms() {
         setRegisterErrors(formattedErrors);
       } else if (error instanceof Response) {
         // Handle API error responses
-        const data = await error.json();
+        const errorText = await error.text(); // First, get the response as text
+        let errorMessage = "Could not create account";
+        
+        try {
+          // Try to parse as JSON, but don't fail if it's not valid JSON
+          const data = JSON.parse(errorText);
+          errorMessage = data.error || errorMessage;
+        } catch (e) {
+          // If JSON parsing fails, use the raw text or fallback message
+          errorMessage = errorText || errorMessage;
+        }
+        
         toast({
           variant: "destructive",
           title: "Registration failed",
-          description: data.error || "Could not create account",
+          description: errorMessage,
         });
       } else {
         // Handle other errors
