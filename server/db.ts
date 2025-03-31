@@ -9,11 +9,10 @@ if (!databaseUrl) {
   throw new Error('DATABASE_URL environment variable is not set');
 }
 
-// Create the SQL connection
-const sql = neon(databaseUrl);
+// Create the SQL connection with proper configuration
+const sql = neon(databaseUrl, { fullResults: true });
 
-// Create the Drizzle ORM client with correct typing
-// @ts-ignore - Type compatibility issue with the Neon client
+// Create the Drizzle ORM client with the schema
 export const db = drizzle(sql, { schema });
 
 // Helper function to handle common database errors

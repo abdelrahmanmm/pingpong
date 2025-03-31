@@ -89,10 +89,13 @@ export function AuthForms() {
         setLoginErrors(formattedErrors);
       } else if (error instanceof Response) {
         // Handle API error responses
-        const errorText = await error.text(); // First, get the response as text
         let errorMessage = "Invalid username or password";
+        let errorText = "";
         
         try {
+          // Clone the response first since we can only read it once
+          const clonedResponse = error.clone();
+          errorText = await clonedResponse.text();
           // Try to parse as JSON, but don't fail if it's not valid JSON
           const data = JSON.parse(errorText);
           errorMessage = data.error || errorMessage;
@@ -156,10 +159,13 @@ export function AuthForms() {
         setRegisterErrors(formattedErrors);
       } else if (error instanceof Response) {
         // Handle API error responses
-        const errorText = await error.text(); // First, get the response as text
         let errorMessage = "Could not create account";
+        let errorText = "";
         
         try {
+          // Clone the response first since we can only read it once
+          const clonedResponse = error.clone();
+          errorText = await clonedResponse.text();
           // Try to parse as JSON, but don't fail if it's not valid JSON
           const data = JSON.parse(errorText);
           errorMessage = data.error || errorMessage;
