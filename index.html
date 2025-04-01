@@ -5,7 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
     <script type="module" crossorigin src="./assets/main.js"></script>
     <link rel="stylesheet" crossorigin href="./assets/main.css">
-  </head>
+  
+  <!-- Start GitHub Pages SPA Routing Handler -->
+  <script type="text/javascript">
+    // This script checks to see if a redirect is present in the URL query
+    // and converts it back into the correct URL if found
+    (function(l) {
+      if (l.search[1] === '/') {
+        var decoded = l.search.slice(1).split('&')[0].split('=')[0].replace(/~and~/g, '&');
+        window.history.replaceState(null, null,
+          l.pathname.slice(0, -1) + decoded + l.hash
+        );
+      }
+    }(window.location))
+  </script>
+  <!-- End GitHub Pages SPA Routing Handler -->
+</head>
   <body>
     <div id="root"></div>
   </body>
