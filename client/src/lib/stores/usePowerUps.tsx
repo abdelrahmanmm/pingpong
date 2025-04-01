@@ -74,7 +74,7 @@ interface PowerUpsState {
   
   // Actions
   spawnPowerUp: (canvasWidth: number, canvasHeight: number) => void;
-  collectPowerUp: (id: string) => PowerUpType | null;
+  collectPowerUp: (id: string, isPlayerCollecting: boolean) => PowerUpType | null;
   checkExpiredPowerUps: () => void;
   isActive: (type: PowerUpType, target: PowerUpTarget) => boolean;
   isPowerUpSpawningEnabled: boolean;
@@ -235,9 +235,10 @@ export const usePowerUps = create<PowerUpsState>((set, get) => ({
   /**
    * Collect a power-up by its ID and activate its effect
    * @param id The ID of the power-up to collect
+   * @param isPlayerCollecting Whether the player is collecting the power-up (true) or the computer (false)
    * @returns The type of the collected power-up, or null if not found
    */
-  collectPowerUp: (id) => {
+  collectPowerUp: (id, isPlayerCollecting = true) => {
     const { spawnedPowerUps, powerUpConfigs, activePowerUps } = get();
     
     // Find the power-up by ID
@@ -252,12 +253,24 @@ export const usePowerUps = create<PowerUpsState>((set, get) => ({
       spawnedPowerUps: state.spawnedPowerUps.filter((p) => p.id !== id),
     }));
     
+    // Determine the correct target based on who collected the power-up
+    let effectiveTarget = config.target;
+    
+    // Swap targets for "PLAYER" and "COMPUTER" based on collector
+    if (!isPlayerCollecting) {
+      if (effectiveTarget === PowerUpTarget.PLAYER) {
+        effectiveTarget = PowerUpTarget.COMPUTER;
+      } else if (effectiveTarget === PowerUpTarget.COMPUTER) {
+        effectiveTarget = PowerUpTarget.PLAYER;
+      }
+    }
+    
     // Add to active power-ups
     const now = Date.now();
     const newActivePowerUp: ActivePowerUp = {
       type: collectedPowerUp.type,
       endTime: now + config.duration,
-      target: config.target,
+      target: effectiveTarget,
     };
     
     // Replace any existing power-up of the same type

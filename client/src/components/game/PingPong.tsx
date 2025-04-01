@@ -237,10 +237,16 @@ const PingPong = () => {
       if (isGameStarted && !isGameOver && !isPaused &&
           Math.sqrt(Math.pow(powerUp.x - ballX, 2) + Math.pow(powerUp.y - ballY, 2)) 
           <= (powerUp.radius + ballSize / 2)) {
-        // Ball touched the power-up, collect it!
-        const collectedType = collectPowerUp(powerUp.id);
+        
+        // Determine which player collects the power-up based on ball direction
+        // If ball is moving right, player collects; if moving left, computer collects
+        const { ballSpeedX } = usePingPong.getState();
+        const isPlayerCollecting = ballSpeedX > 0; // Ball moving right means player last hit it
+        
+        // Ball touched the power-up, collect it with the correct collector
+        const collectedType = collectPowerUp(powerUp.id, isPlayerCollecting);
         if (collectedType) {
-          console.log(`Collected power-up: ${collectedType}`);
+          console.log(`${isPlayerCollecting ? 'Player' : 'Computer'} collected power-up: ${collectedType}`);
           // Play success sound when power-up is collected
           useAudio.getState().playSuccess();
         }
