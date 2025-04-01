@@ -18,10 +18,12 @@
 import React, { useEffect } from "react";
 import ReactDOM from "react-dom/client";
 import { QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import "./index.css"; // Import global styles
 import { queryClient } from "./lib/queryClient";
 import { localStorageService } from "./lib/localStorageService";
+import { isGitHubPages } from "./lib/queryClient";
 
 /**
  * GitHubPagesProvider Component
@@ -40,19 +42,38 @@ function GitHubPagesProvider({ children }: { children: React.ReactNode }) {
 }
 
 /**
+ * Get repository name from URL for GitHub Pages
+ * This is needed to set the correct basename for React Router
+ */
+function getRepoName(): string {
+  if (isGitHubPages()) {
+    // Get the repository name from the URL path
+    // URL format is: username.github.io/repo-name
+    const pathSegments = window.location.pathname.split('/');
+    if (pathSegments.length >= 2) {
+      return '/' + pathSegments[1]; // First segment after domain
+    }
+  }
+  return '/'; // Default to root for non-GitHub Pages environments
+}
+
+/**
  * Main application renderer
  * 
  * Creates a React root and renders the application with necessary providers:
  * - React StrictMode: Helps catch potential problems in development
  * - QueryClientProvider: Provides React Query functionality for data fetching
+ * - BrowserRouter: Provides routing with correct basename for GitHub Pages
  * - GitHubPagesProvider: Initializes demo data for GitHub Pages
  */
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <GitHubPagesProvider>
-        <App />
-      </GitHubPagesProvider>
+      <BrowserRouter basename={getRepoName()}>
+        <GitHubPagesProvider>
+          <App />
+        </GitHubPagesProvider>
+      </BrowserRouter>
     </QueryClientProvider>
   </React.StrictMode>
 );

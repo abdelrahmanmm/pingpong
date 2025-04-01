@@ -27,6 +27,21 @@ export const isGitHubPages = () => {
 };
 
 /**
+ * Gets the base URL for GitHub Pages deployment
+ * This helps with loading assets with the correct paths
+ */
+export const getGitHubPagesBase = () => {
+  if (isGitHubPages()) {
+    // Extract repository name from URL path
+    const pathSegments = window.location.pathname.split('/');
+    if (pathSegments.length >= 2) {
+      return '/' + pathSegments[1] + '/';
+    }
+  }
+  return '/';
+};
+
+/**
  * Custom API request function
  * 
  * This function will use local storage for data persistence when running on GitHub Pages,

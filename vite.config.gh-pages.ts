@@ -42,7 +42,8 @@ export default defineConfig({
   root: path.resolve(__dirname, "client"),
   
   // Use relative paths for all assets - critical for GitHub Pages subpath hosting
-  base: "./", 
+  // For GitHub Pages hosting with a repository name, we need to use the repo name as the base path
+  base: './',
   
   // Configure the build output for static hosting
   build: {

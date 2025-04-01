@@ -151,29 +151,58 @@ const notFoundContent = `
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ping Pong Game</title>
   <script>
-    // Single Page Apps for GitHub Pages
-    // This script takes the current URL and converts the path and query string into
-    // just a query string, and then redirects the browser to the new URL with
-    // only a query string and hash fragment.
-    (function(l) {
-      if (l.search[1] === '/' ) {
-        var decoded = l.search.slice(1).split('&').map(function(s) { 
-          return s.replace(/~and~/g, '&')
-        }).join('?');
-        window.history.replaceState(null, null,
-            l.pathname.slice(0, -1) + decoded + l.hash
-        );
-      }
-    }(window.location))
+    // Segment to handle GitHub Pages SPA routing
+    // Extracts the repo name for proper path handling
+    var pathSegmentsToKeep = 1; // Number of path segments to keep (1 for the repo name)
+    
+    var l = window.location;
+    l.replace(
+      l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
+      l.pathname.split('/').slice(0, 1 + pathSegmentsToKeep).join('/') + '/?/' +
+      l.pathname.slice(1).split('/').slice(pathSegmentsToKeep).join('/').replace(/&/g, '~and~') +
+      (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+      l.hash
+    );
   </script>
-  <!-- Redirect to the home page after the script runs -->
-  <meta http-equiv="refresh" content="0;URL='/'">
 </head>
 <body>
   <p>Redirecting to home page...</p>
 </body>
 </html>
 `;
+
+// Create a special index.html that handles the GitHub Pages SPA routing
+const indexRedirectScript = `
+  <!-- Start GitHub Pages SPA Routing Handler -->
+  <script type="text/javascript">
+    // This script checks to see if a redirect is present in the URL query
+    // and converts it back into the correct URL if found
+    (function(l) {
+      if (l.search[1] === '/') {
+        var decoded = l.search.slice(1).split('&')[0].split('=')[0].replace(/~and~/g, '&');
+        window.history.replaceState(null, null,
+          l.pathname.slice(0, -1) + decoded + l.hash
+        );
+      }
+    }(window.location))
+  </script>
+  <!-- End GitHub Pages SPA Routing Handler -->
+`;
+
+// Add the redirect script to the index.html file
+const indexHtmlPath = path.join(process.cwd(), 'dist', 'index.html');
+if (fs.existsSync(indexHtmlPath)) {
+  let indexHtml = fs.readFileSync(indexHtmlPath, 'utf8');
+  // Insert the script right before the closing </head> tag
+  indexHtml = indexHtml.replace('</head>', indexRedirectScript + '</head>');
+  
+  // Also update all asset references to use relative paths
+  indexHtml = indexHtml.replace(/href="\//g, 'href="./');
+  indexHtml = indexHtml.replace(/src="\//g, 'src="./');
+  
+  fs.writeFileSync(indexHtmlPath, indexHtml);
+  console.log('Added SPA routing script to index.html and updated asset paths');
+}
 
 // Write the 404.html file to the distribution directory
 fs.writeFileSync(path.join(process.cwd(), 'dist', '404.html'), notFoundContent);

@@ -72,24 +72,29 @@ const PingPong = () => {
    * - Sets up window resize handler for responsive layout
    */
   useEffect(() => {
-    // Initialize audio with error handling
-    const hitSfx = new Audio("/sounds/hit.mp3");
-    const successSfx = new Audio("/sounds/success.mp3");
-    const backgroundMusic = new Audio("/sounds/background.mp3");
-    
-    // Handle loading errors for better debugging
-    hitSfx.onerror = () => console.error("Failed to load hit sound");
-    successSfx.onerror = () => console.error("Failed to load success sound");
-    backgroundMusic.onerror = () => console.error("Failed to load background music");
-    
-    // Configure background music properties
-    backgroundMusic.loop = true;          // Music should loop continuously
-    backgroundMusic.volume = 0.5;         // Set to 50% volume to not overpower game sounds
-    
-    // Set the audio files in our global store for access throughout the game
-    setHitSound(hitSfx);
-    setSuccessSound(successSfx);
-    setBackgroundMusic(backgroundMusic);
+    // Import the asset utilities
+    import("@/lib/assetUtils").then(({ getSoundUrl }) => {
+      // Initialize audio with error handling and corrected paths
+      const hitSfx = new Audio(getSoundUrl("hit.mp3"));
+      const successSfx = new Audio(getSoundUrl("success.mp3"));
+      const backgroundMusic = new Audio(getSoundUrl("background.mp3"));
+      
+      // Handle loading errors for better debugging
+      hitSfx.onerror = () => console.error("Failed to load hit sound");
+      successSfx.onerror = () => console.error("Failed to load success sound");
+      backgroundMusic.onerror = () => console.error("Failed to load background music");
+      
+      // Configure background music properties
+      backgroundMusic.loop = true;          // Music should loop continuously
+      backgroundMusic.volume = 0.5;         // Set to 50% volume to not overpower game sounds
+      
+      // Set the audio files in our global store for access throughout the game
+      setHitSound(hitSfx);
+      setSuccessSound(successSfx);
+      setBackgroundMusic(backgroundMusic);
+    }).catch(error => {
+      console.error("Error loading sound assets:", error);
+    });
 
     // Initialize game dimensions based on current screen size
     initialize();
