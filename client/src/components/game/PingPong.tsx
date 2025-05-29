@@ -36,6 +36,7 @@ const PingPong = () => {
     computerPaddleY,
     ballX,
     ballY,
+    balls, // Add balls array for multiball support
     playerScore,
     computerScore,
     isGameOver,
@@ -233,34 +234,51 @@ const PingPong = () => {
       ctx.fillStyle = `${powerUp.color}40`; // Add transparency for glow
       ctx.fill();
       
-      // Check if the ball hits a power-up
-      if (isGameStarted && !isGameOver && !isPaused &&
-          Math.sqrt(Math.pow(powerUp.x - ballX, 2) + Math.pow(powerUp.y - ballY, 2)) 
-          <= (powerUp.radius + ballSize / 2)) {
-        
-        // Determine which player collects the power-up based on ball direction
-        // If ball is moving right, player collects; if moving left, computer collects
-        const { ballSpeedX } = usePingPong.getState();
-        const isPlayerCollecting = ballSpeedX > 0; // Ball moving right means player last hit it
-        
-        // Ball touched the power-up, collect it with the correct collector
-        const collectedType = collectPowerUp(powerUp.id, isPlayerCollecting);
-        if (collectedType) {
-          console.log(`${isPlayerCollecting ? 'Player' : 'Computer'} collected power-up: ${collectedType}`);
-          // Play success sound when power-up is collected
-          useAudio.getState().playSuccess();
-        }
+      // Check if any ball hits a power-up (supports multiball)
+      if (isGameStarted && !isGameOver && !isPaused) {
+        balls.forEach(ball => {
+          const distance = Math.sqrt(Math.pow(powerUp.x - ball.x, 2) + Math.pow(powerUp.y - ball.y, 2));
+          if (distance <= (powerUp.radius + ballSize / 2)) {
+            
+            // Determine which player collects the power-up based on ball direction
+            // If ball is moving right, player collects; if moving left, computer collects
+            const isPlayerCollecting = ball.speedX > 0; // Ball moving right means player last hit it
+            
+            // Ball touched the power-up, collect it with the correct collector
+            const collectedType = collectPowerUp(powerUp.id, isPlayerCollecting);
+            if (collectedType) {
+              console.log(`${isPlayerCollecting ? 'Player' : 'Computer'} collected power-up: ${collectedType}`);
+              // Play success sound when power-up is collected
+              useAudio.getState().playSuccess();
+            }
+          }
+        });
       }
     });
 
     // Draw ball with power-up effects (invisibility)
+    // Draw all balls (main ball + any extra balls from multiball power-up)
     if (isGameStarted && !isGameOver && !isPaused) {
       // Apply ball opacity power-up effect
       ctx.globalAlpha = getBallOpacity();
       ctx.fillStyle = "#ffffff";
-      ctx.beginPath();
-      ctx.arc(ballX, ballY, ballSize / 2, 0, Math.PI * 2);
-      ctx.fill();
+      
+      // Render all active balls in the multiball system
+      balls.forEach((ball, index) => {
+        ctx.beginPath();
+        ctx.arc(ball.x, ball.y, ballSize / 2, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Add visual distinction for extra balls (slight glow effect)
+        if (!ball.isMainBall) {
+          ctx.globalAlpha = 0.3;
+          ctx.beginPath();
+          ctx.arc(ball.x, ball.y, ballSize / 2 + 3, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = getBallOpacity(); // Reset to power-up opacity
+        }
+      });
+      
       ctx.globalAlpha = 1.0; // Reset opacity
     }
 
