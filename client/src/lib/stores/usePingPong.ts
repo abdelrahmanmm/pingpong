@@ -15,6 +15,19 @@ type GameWinner = "player" | "computer" | null;
 export type DifficultyLevel = 1 | 2 | 3 | 4 | 5;
 
 /**
+ * Represents a single ball in the game
+ * Used for both the main ball and additional balls from multiball power-up
+ */
+interface Ball {
+  id: string;                  // Unique identifier for the ball
+  x: number;                   // X-position of ball center
+  y: number;                   // Y-position of ball center
+  speedX: number;              // Horizontal speed of ball (pixels per frame)
+  speedY: number;              // Vertical speed of ball (pixels per frame)
+  isMainBall: boolean;         // True if this is the primary ball (affects scoring)
+}
+
+/**
  * Main state interface for the ping pong game
  * Contains all game state, settings, and methods needed to control the game
  */
@@ -29,10 +42,15 @@ interface PingPongState {
   // Game positions
   playerPaddleY: number;       // Y-position of player paddle (left side)
   computerPaddleY: number;     // Y-position of computer paddle (right side)
-  ballX: number;               // X-position of ball center
-  ballY: number;               // Y-position of ball center
-  ballSpeedX: number;          // Horizontal speed of ball (pixels per frame)
-  ballSpeedY: number;          // Vertical speed of ball (pixels per frame)
+  
+  // Ball system - supports multiple balls for multiball power-up
+  balls: Ball[];               // Array of all active balls in the game
+  
+  // Legacy ball properties (kept for backward compatibility)
+  ballX: number;               // X-position of main ball center
+  ballY: number;               // Y-position of main ball center
+  ballSpeedX: number;          // Horizontal speed of main ball (pixels per frame)
+  ballSpeedY: number;          // Vertical speed of main ball (pixels per frame)
 
   // Game state
   playerScore: number;         // Current score of the player
@@ -70,6 +88,13 @@ interface PingPongState {
   getComputerPaddleSpeed: () => number;        // Calculate current computer paddle speed
   getDifficultyName: () => string;             // Get the name of the current difficulty level
   getAllDifficultyLevels: () => {level: DifficultyLevel, name: string}[]; // Get all available difficulty levels
+  
+  // Multiball system methods
+  createMainBall: () => Ball;                  // Create the primary ball
+  addExtraBalls: (count: number) => void;      // Add extra balls for multiball power-up
+  removeExtraBalls: () => void;                // Remove all extra balls, keeping only main ball
+  getMainBall: () => Ball | undefined;         // Get the main ball from the balls array
+  updateBallPositions: (ball: Ball, ballSpeedMultiplier: number) => Ball; // Update a single ball's position
 }
 
 export const usePingPong = create<PingPongState>((set, get) => {
@@ -100,6 +125,9 @@ export const usePingPong = create<PingPongState>((set, get) => {
     ballY: 300,
     ballSpeedX: 5,
     ballSpeedY: 0,
+    
+    // Initialize with one main ball for multiball system
+    balls: [],
 
     // Game state
     playerScore: 0,
@@ -182,27 +210,57 @@ export const usePingPong = create<PingPongState>((set, get) => {
 
     // Update game state (ball position, computer paddle, collision detection)
     updateGame: () => {
+      // Declare scoring variables outside the set function
+      let shouldScore = false;
+      let scoringPlayer = "";
+      
       set((state) => {
         const audio = useAudio.getState();
         const powerUps = usePowerUps.getState();
         
+        // Check for multiball power-up activation
+        // If multiball is active and we don't have extra balls, add them
+        if (powerUps.isActive(usePowerUps.getState().powerUpConfigs.MULTI_BALL.type, usePowerUps.getState().powerUpConfigs.MULTI_BALL.target)) {
+          if (state.balls.length <= 1) {
+            // Add 2 extra balls for multiball effect
+            state.addExtraBalls(2);
+          }
+        } else {
+          // Multiball not active, remove extra balls if any exist
+          if (state.balls.length > 1) {
+            state.removeExtraBalls();
+          }
+        }
+        
+        // Ensure we have at least the main ball
+        if (state.balls.length === 0) {
+          state.balls.push(state.createMainBall());
+        }
+        
         // Apply power-up effects to ball speed
         const ballSpeedMultiplier = powerUps.getBallSpeedMultiplier();
         
-        // Move the ball with power-up effects applied
-        let newBallX = state.ballX + (state.ballSpeedX * ballSpeedMultiplier);
-        let newBallY = state.ballY + (state.ballSpeedY * ballSpeedMultiplier);
+        // Update all balls using the new multiball system
+        let updatedBalls = state.balls.map(ball => 
+          state.updateBallPositions(ball, ballSpeedMultiplier)
+        );
+        
+        // Update legacy ball properties from main ball for backward compatibility
+        const mainBall = updatedBalls.find(ball => ball.isMainBall);
+        let newBallX = state.ballX;
+        let newBallY = state.ballY;
         let newBallSpeedX = state.ballSpeedX;
         let newBallSpeedY = state.ballSpeedY;
         
-        // Ball collision with top and bottom walls
-        if (newBallY - state.ballSize / 2 <= 0 || 
-            newBallY + state.ballSize / 2 >= state.canvasHeight) {
-          newBallSpeedY = -newBallSpeedY;
-          audio.playHit();
+        if (mainBall) {
+          newBallX = mainBall.x;
+          newBallY = mainBall.y;
+          newBallSpeedX = mainBall.speedX;
+          newBallSpeedY = mainBall.speedY;
         }
         
-        // Computer AI - move towards the ball with prediction based on difficulty level
+        // Computer AI - move towards the main ball with prediction based on difficulty level
+        // Only the main ball affects AI behavior to keep it manageable
         let computerPaddleTarget = state.computerPaddleY;
         
         // Only move computer paddle when ball is moving toward it
@@ -262,75 +320,41 @@ export const usePingPong = create<PingPongState>((set, get) => {
           newComputerPaddleY = state.computerPaddleY;
         }
         
-        // Ball collision with player paddle (left side)
-        if (newBallX - state.ballSize / 2 <= state.paddleWidth && 
-            newBallY >= state.playerPaddleY - state.paddleHeight / 2 && 
-            newBallY <= state.playerPaddleY + state.paddleHeight / 2) {
+        // Remove any balls that have gone off the screen and handle scoring
+        // Only the main ball affects scoring - extra balls just disappear
+        let ballsToRemove = [];
+        
+        for (let i = 0; i < updatedBalls.length; i++) {
+          const ball = updatedBalls[i];
           
-          // Calculate bounce angle based on where the ball hits the paddle
-          const relativeIntersectY = state.playerPaddleY - newBallY;
-          const normalizedRelativeIntersectionY = relativeIntersectY / (state.paddleHeight / 2);
-          const bounceAngle = normalizedRelativeIntersectionY * Math.PI / 4; // Max 45 degree angle
-          
-          // Calculate new ball speed
-          const speed = Math.sqrt(newBallSpeedX * newBallSpeedX + newBallSpeedY * newBallSpeedY);
-          const newSpeed = speed + state.ballSpeedIncrement;
-          
-          newBallSpeedX = newSpeed * Math.cos(bounceAngle);
-          newBallSpeedY = newSpeed * -Math.sin(bounceAngle);
-          
-          // Ensure the ball moves away from the paddle
-          if (newBallSpeedX <= 0) {
-            newBallSpeedX = Math.abs(newBallSpeedX);
+          // Check if ball has gone past the paddles
+          if (ball.x - state.ballSize / 2 <= 0) {
+            // Ball went past player paddle - computer scores
+            if (ball.isMainBall && state.isGameStarted && !state.isGameOver && !state.isPaused) {
+              shouldScore = true;
+              scoringPlayer = "computer";
+              console.log("Computer scored a point (main ball)");
+            }
+            ballsToRemove.push(i);
+          } else if (ball.x + state.ballSize / 2 >= state.canvasWidth) {
+            // Ball went past computer paddle - player scores
+            if (ball.isMainBall && state.isGameStarted && !state.isGameOver && !state.isPaused) {
+              shouldScore = true;
+              scoringPlayer = "player";
+              console.log("Player scored a point (main ball)");
+            }
+            ballsToRemove.push(i);
           }
-          
-          newBallX = state.paddleWidth + state.ballSize / 2;
-          audio.playHit();
         }
         
-        // Ball collision with computer paddle (right side)
-        if (newBallX + state.ballSize / 2 >= state.canvasWidth - state.paddleWidth && 
-            newBallY >= newComputerPaddleY - state.paddleHeight / 2 && 
-            newBallY <= newComputerPaddleY + state.paddleHeight / 2) {
-          
-          // Calculate bounce angle based on where the ball hits the paddle
-          const relativeIntersectY = newComputerPaddleY - newBallY;
-          const normalizedRelativeIntersectionY = relativeIntersectY / (state.paddleHeight / 2);
-          const bounceAngle = normalizedRelativeIntersectionY * Math.PI / 4; // Max 45 degree angle
-          
-          // Calculate new ball speed
-          const speed = Math.sqrt(newBallSpeedX * newBallSpeedX + newBallSpeedY * newBallSpeedY);
-          const newSpeed = speed + state.ballSpeedIncrement;
-          
-          newBallSpeedX = -newSpeed * Math.cos(bounceAngle);
-          newBallSpeedY = newSpeed * -Math.sin(bounceAngle);
-          
-          // Ensure the ball moves away from the paddle
-          if (newBallSpeedX >= 0) {
-            newBallSpeedX = -Math.abs(newBallSpeedX);
-          }
-          
-          newBallX = state.canvasWidth - state.paddleWidth - state.ballSize / 2;
-          audio.playHit();
+        // Remove balls that went off screen (reverse order to maintain indices)
+        for (let i = ballsToRemove.length - 1; i >= 0; i--) {
+          updatedBalls.splice(ballsToRemove[i], 1);
         }
         
-        // Check if ball goes beyond paddles but DON'T handle scoring here
-        // Scoring is handled separately after this update to ensure state consistency
-        if (newBallX - state.ballSize / 2 <= 0 || newBallX + state.ballSize / 2 >= state.canvasWidth) {
-          // Just update positions, scoring will be handled in the check after this function
-          return {
-            ...state,
-            ballX: newBallX,
-            ballY: newBallY,
-            ballSpeedX: newBallSpeedX,
-            ballSpeedY: newBallSpeedY,
-            computerPaddleY: newComputerPaddleY,
-            frameCount: state.frameCount + 1,
-          };
-        }
-        
-        // If no scoring happened, just update positions and increment frame count
+        // Update state with new ball positions and computer paddle
         return {
+          balls: updatedBalls,
           ballX: newBallX,
           ballY: newBallY,
           ballSpeedX: newBallSpeedX,
@@ -340,24 +364,9 @@ export const usePingPong = create<PingPongState>((set, get) => {
         };
       });
       
-      // Check for scoring after updating positions
-      const state = get();
-      
-      // Computer scores when ball passes left edge
-      if (state.ballX - state.ballSize / 2 <= 0) {
-        // Only score if the game is in progress
-        if (state.isGameStarted && !state.isGameOver && !state.isPaused) {
-          console.log("Computer scored a point");
-          get().scorePoint("computer");
-        }
-      } 
-      // Player scores when ball passes right edge
-      else if (state.ballX + state.ballSize / 2 >= state.canvasWidth) {
-        // Only score if the game is in progress
-        if (state.isGameStarted && !state.isGameOver && !state.isPaused) {
-          console.log("Player scored a point");
-          get().scorePoint("player");
-        }
+      // Handle scoring after updating positions
+      if (shouldScore && scoringPlayer) {
+        get().scorePoint(scoringPlayer as "player" | "computer");
       }
     },
 
@@ -395,18 +404,35 @@ export const usePingPong = create<PingPongState>((set, get) => {
       get().resetBall();
     },
 
-    // Reset ball to center with random direction
+    // Reset ball to center with random direction and initialize multiball system
     resetBall: () => {
       set((state) => {
         // Randomize initial ball direction but ensure it moves horizontally
         const direction = Math.random() > 0.5 ? 1 : -1;
         const angle = (Math.random() * Math.PI / 4) - Math.PI / 8; // -22.5 to 22.5 degrees
         
+        const newBallX = state.canvasWidth / 2;
+        const newBallY = state.canvasHeight / 2;
+        const newBallSpeedX = state.initialBallSpeed * direction * Math.cos(angle);
+        const newBallSpeedY = state.initialBallSpeed * Math.sin(angle);
+        
+        // Create the main ball for the multiball system
+        const mainBall: Ball = {
+          id: 'main-ball',
+          x: newBallX,
+          y: newBallY,
+          speedX: newBallSpeedX,
+          speedY: newBallSpeedY,
+          isMainBall: true,
+        };
+        
+        // Initialize with only the main ball (remove any extra balls from previous rounds)
         return {
-          ballX: state.canvasWidth / 2,
-          ballY: state.canvasHeight / 2,
-          ballSpeedX: state.initialBallSpeed * direction * Math.cos(angle),
-          ballSpeedY: state.initialBallSpeed * Math.sin(angle),
+          ballX: newBallX,
+          ballY: newBallY,
+          ballSpeedX: newBallSpeedX,
+          ballSpeedY: newBallSpeedY,
+          balls: [mainBall], // Reset to single ball
         };
       });
     },
@@ -559,6 +585,190 @@ export const usePingPong = create<PingPongState>((set, get) => {
         { level: 4 as DifficultyLevel, name: "Hard" },
         { level: 5 as DifficultyLevel, name: "Expert" }
       ];
+    },
+
+    // MULTIBALL SYSTEM IMPLEMENTATION
+    // These methods handle the creation and management of multiple balls
+
+    /**
+     * Create the main ball object
+     * This is the primary ball that determines scoring and game flow
+     */
+    createMainBall: (): Ball => {
+      const state = get();
+      return {
+        id: 'main-ball',
+        x: state.ballX,
+        y: state.ballY,
+        speedX: state.ballSpeedX,
+        speedY: state.ballSpeedY,
+        isMainBall: true,
+      };
+    },
+
+    /**
+     * Add extra balls for multiball power-up effect
+     * Creates additional balls with randomized positions and speeds
+     * @param count Number of additional balls to spawn
+     */
+    addExtraBalls: (count) => {
+      set((state) => {
+        const newBalls = [...state.balls];
+        
+        // Ensure we have the main ball
+        const mainBall = newBalls.find(ball => ball.isMainBall);
+        if (!mainBall) {
+          newBalls.push(state.createMainBall());
+        }
+        
+        // Add extra balls with varied trajectories
+        for (let i = 0; i < count; i++) {
+          const extraBall: Ball = {
+            id: `extra-ball-${Date.now()}-${i}`,
+            x: state.canvasWidth / 2, // Start from center
+            y: state.canvasHeight / 2,
+            // Create varied speeds and directions for interesting gameplay
+            speedX: (Math.random() > 0.5 ? 1 : -1) * (3 + Math.random() * 4), // Random speed 3-7
+            speedY: (Math.random() - 0.5) * 6, // Random vertical direction
+            isMainBall: false, // Extra balls don't affect scoring
+          };
+          newBalls.push(extraBall);
+        }
+        
+        console.log(`Added ${count} extra balls for multiball effect`);
+        return { balls: newBalls };
+      });
+    },
+
+    /**
+     * Remove all extra balls, keeping only the main ball
+     * Called when multiball power-up expires
+     */
+    removeExtraBalls: () => {
+      set((state) => {
+        // Keep only the main ball
+        const mainBall = state.balls.find(ball => ball.isMainBall);
+        const newBalls = mainBall ? [mainBall] : [state.createMainBall()];
+        
+        console.log('Multiball effect ended - removed extra balls');
+        return { balls: newBalls };
+      });
+    },
+
+    /**
+     * Get the main ball from the balls array
+     * @returns The main ball, or undefined if not found
+     */
+    getMainBall: () => {
+      const state = get();
+      return state.balls.find(ball => ball.isMainBall);
+    },
+
+    /**
+     * Update position and handle collisions for a single ball
+     * This method contains the core ball physics and collision logic
+     * @param ball The ball to update
+     * @param ballSpeedMultiplier Speed modifier from power-ups
+     * @returns Updated ball object
+     */
+    updateBallPositions: (ball, ballSpeedMultiplier) => {
+      const state = get();
+      const audio = useAudio.getState();
+      
+      // Apply power-up speed effects to ball movement
+      let newX = ball.x + (ball.speedX * ballSpeedMultiplier);
+      let newY = ball.y + (ball.speedY * ballSpeedMultiplier);
+      let newSpeedX = ball.speedX;
+      let newSpeedY = ball.speedY;
+      
+      // Ball collision with top and bottom walls
+      if (newY - state.ballSize / 2 <= 0 || newY + state.ballSize / 2 >= state.canvasHeight) {
+        newSpeedY = -newSpeedY; // Reverse vertical direction
+        // Play hit sound only for main ball to avoid audio spam
+        if (ball.isMainBall) {
+          audio.playHit();
+        }
+      }
+      
+      // Get paddle height multipliers from power-ups
+      const powerUps = usePowerUps.getState();
+      const playerPaddleMultiplier = powerUps.getPlayerPaddleHeightMultiplier();
+      const computerPaddleMultiplier = powerUps.getComputerPaddleHeightMultiplier();
+      
+      // Calculate effective paddle heights with power-up effects
+      const effectivePlayerPaddleHeight = state.paddleHeight * playerPaddleMultiplier;
+      const effectiveComputerPaddleHeight = state.paddleHeight * computerPaddleMultiplier;
+      
+      // Ball collision with player paddle (left side)
+      if (newX - state.ballSize / 2 <= state.paddleWidth && 
+          newY >= state.playerPaddleY - effectivePlayerPaddleHeight / 2 && 
+          newY <= state.playerPaddleY + effectivePlayerPaddleHeight / 2) {
+        
+        // Calculate bounce angle based on hit position on paddle
+        const relativeIntersectY = state.playerPaddleY - newY;
+        const normalizedIntersection = relativeIntersectY / (effectivePlayerPaddleHeight / 2);
+        const bounceAngle = normalizedIntersection * Math.PI / 4; // Max 45 degrees
+        
+        // Increase speed slightly on each paddle hit
+        const currentSpeed = Math.sqrt(newSpeedX * newSpeedX + newSpeedY * newSpeedY);
+        const newSpeed = currentSpeed + state.ballSpeedIncrement;
+        
+        // Apply new velocity with bounce angle
+        newSpeedX = newSpeed * Math.cos(bounceAngle);
+        newSpeedY = newSpeed * -Math.sin(bounceAngle);
+        
+        // Ensure ball moves away from paddle
+        if (newSpeedX <= 0) {
+          newSpeedX = Math.abs(newSpeedX);
+        }
+        
+        newX = state.paddleWidth + state.ballSize / 2;
+        
+        // Play hit sound only for main ball
+        if (ball.isMainBall) {
+          audio.playHit();
+        }
+      }
+      
+      // Ball collision with computer paddle (right side)
+      if (newX + state.ballSize / 2 >= state.canvasWidth - state.paddleWidth && 
+          newY >= state.computerPaddleY - effectiveComputerPaddleHeight / 2 && 
+          newY <= state.computerPaddleY + effectiveComputerPaddleHeight / 2) {
+        
+        // Calculate bounce angle based on hit position on paddle
+        const relativeIntersectY = state.computerPaddleY - newY;
+        const normalizedIntersection = relativeIntersectY / (effectiveComputerPaddleHeight / 2);
+        const bounceAngle = normalizedIntersection * Math.PI / 4; // Max 45 degrees
+        
+        // Increase speed slightly on each paddle hit
+        const currentSpeed = Math.sqrt(newSpeedX * newSpeedX + newSpeedY * newSpeedY);
+        const newSpeed = currentSpeed + state.ballSpeedIncrement;
+        
+        // Apply new velocity with bounce angle
+        newSpeedX = -newSpeed * Math.cos(bounceAngle);
+        newSpeedY = newSpeed * -Math.sin(bounceAngle);
+        
+        // Ensure ball moves away from paddle
+        if (newSpeedX >= 0) {
+          newSpeedX = -Math.abs(newSpeedX);
+        }
+        
+        newX = state.canvasWidth - state.paddleWidth - state.ballSize / 2;
+        
+        // Play hit sound only for main ball
+        if (ball.isMainBall) {
+          audio.playHit();
+        }
+      }
+      
+      // Return updated ball object
+      return {
+        ...ball,
+        x: newX,
+        y: newY,
+        speedX: newSpeedX,
+        speedY: newSpeedY,
+      };
     },
   };
 });
