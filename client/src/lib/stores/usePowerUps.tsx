@@ -255,14 +255,22 @@ export const usePowerUps = create<PowerUpsState>((set, get) => ({
     
     // Determine the correct target based on who collected the power-up
     let effectiveTarget = config.target;
+    let effectiveType = collectedPowerUp.type;
     
-    // Swap targets for "PLAYER" and "COMPUTER" based on collector
+    // Handle power-up effects based on collector
     if (!isPlayerCollecting) {
+      // Computer collected the power-up
       if (effectiveTarget === PowerUpTarget.PLAYER) {
+        // Power-up meant to help player - computer gets it instead
         effectiveTarget = PowerUpTarget.COMPUTER;
       } else if (effectiveTarget === PowerUpTarget.COMPUTER) {
+        // Power-up meant to hurt computer - now hurts player instead
         effectiveTarget = PowerUpTarget.PLAYER;
       }
+      // For BALL and GAME targets, the effect stays the same but may benefit computer more
+    } else {
+      // Player collected the power-up - effects work as intended
+      // No changes needed for player collection
     }
     
     // Add to active power-ups
@@ -335,14 +343,20 @@ export const usePowerUps = create<PowerUpsState>((set, get) => ({
   
   /**
    * Get the current player paddle height multiplier based on active power-ups
-   * @returns Multiplier for paddle height (> 1 for larger)
+   * @returns Multiplier for paddle height (> 1 for larger, < 1 for smaller)
    */
   getPlayerPaddleHeightMultiplier: () => {
     const state = get();
     let multiplier = 1;
     
+    // Player gets benefit from PADDLE_EXTENDER targeted at them
     if (state.isActive(PowerUpType.PADDLE_EXTENDER, PowerUpTarget.PLAYER)) {
       multiplier *= 1.5; // 50% larger paddle
+    }
+    
+    // Player gets debuff from SHRINK_OPPONENT targeted at them (when computer collected it)
+    if (state.isActive(PowerUpType.SHRINK_OPPONENT, PowerUpTarget.PLAYER)) {
+      multiplier *= 0.6; // 40% smaller paddle
     }
     
     return multiplier;
@@ -350,12 +364,18 @@ export const usePowerUps = create<PowerUpsState>((set, get) => ({
   
   /**
    * Get the current computer paddle height multiplier based on active power-ups
-   * @returns Multiplier for paddle height (< 1 for smaller)
+   * @returns Multiplier for paddle height (> 1 for larger, < 1 for smaller)
    */
   getComputerPaddleHeightMultiplier: () => {
     const state = get();
     let multiplier = 1;
     
+    // Computer gets benefit from PADDLE_EXTENDER targeted at them (when computer collected it)
+    if (state.isActive(PowerUpType.PADDLE_EXTENDER, PowerUpTarget.COMPUTER)) {
+      multiplier *= 1.5; // 50% larger paddle
+    }
+    
+    // Computer gets debuff from SHRINK_OPPONENT targeted at them (when player collected it)
     if (state.isActive(PowerUpType.SHRINK_OPPONENT, PowerUpTarget.COMPUTER)) {
       multiplier *= 0.6; // 40% smaller paddle
     }
