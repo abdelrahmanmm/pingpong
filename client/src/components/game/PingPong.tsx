@@ -256,30 +256,39 @@ const PingPong = () => {
       }
     });
 
-    // Draw ball with power-up effects (invisibility)
-    // Draw all balls (main ball + any extra balls from multiball power-up)
+    // MULTIBALL RENDERING SYSTEM
+    // Draw all active balls with visual effects and power-up modifications
     if (isGameStarted && !isGameOver && !isPaused) {
-      // Apply ball opacity power-up effect
+      
+      // Step 1: Apply global ball opacity from invisibility power-up
       ctx.globalAlpha = getBallOpacity();
       ctx.fillStyle = "#ffffff";
       
-      // Render all active balls in the multiball system
+      // Step 2: Render each ball in the multiball system
       balls.forEach((ball, index) => {
+        // Draw the main ball body
         ctx.beginPath();
         ctx.arc(ball.x, ball.y, ballSize / 2, 0, Math.PI * 2);
         ctx.fill();
         
-        // Add visual distinction for extra balls (slight glow effect)
+        // Step 3: Add visual distinction for extra balls
+        // Extra balls get a subtle glow effect to help players distinguish them
         if (!ball.isMainBall) {
+          // Temporarily reduce opacity for glow effect
           ctx.globalAlpha = 0.3;
+          
+          // Draw larger circle for glow (3 pixels bigger radius)
           ctx.beginPath();
           ctx.arc(ball.x, ball.y, ballSize / 2 + 3, 0, Math.PI * 2);
           ctx.fill();
-          ctx.globalAlpha = getBallOpacity(); // Reset to power-up opacity
+          
+          // Restore opacity for next ball or other elements
+          ctx.globalAlpha = getBallOpacity();
         }
       });
       
-      ctx.globalAlpha = 1.0; // Reset opacity
+      // Step 4: Reset global opacity for other game elements
+      ctx.globalAlpha = 1.0;
     }
 
     // Draw "Start Game" message if not started
