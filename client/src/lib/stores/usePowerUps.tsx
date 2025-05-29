@@ -164,27 +164,32 @@ export const usePowerUps = create<PowerUpsState>((set, get) => ({
   
   /**
    * Spawn a power-up on the canvas if conditions are met
+   * 
+   * This function is called periodically during gameplay to create new power-ups.
+   * It uses a weighted probability system to determine which type of power-up to spawn,
+   * and carefully positions them to avoid interfering with gameplay.
+   * 
    * @param canvasWidth Width of the game canvas
    * @param canvasHeight Height of the game canvas
    */
   spawnPowerUp: (canvasWidth, canvasHeight) => {
     const state = get();
     
-    // Don't spawn if disabled or max power-ups reached
+    // Early exit conditions: don't spawn if disabled or at maximum capacity
     if (!state.isPowerUpSpawningEnabled || state.spawnedPowerUps.length >= state.maxPowerUps) {
       return;
     }
     
     const now = Date.now();
     
-    // Check if it's time to spawn a new power-up
+    // Check if enough time has passed since the last spawn
     if (now >= state.nextSpawnTime) {
-      // Get list of possible power-ups based on probability
+      // Step 1: Select a power-up type using weighted probability
       const powerUpTypes = Object.values(state.powerUpConfigs);
       const probabilitySum = powerUpTypes.reduce((sum, config) => sum + config.probability, 0);
       let randomValue = Math.random() * probabilitySum;
       
-      // Select a power-up type based on probability
+      // Use a roulette wheel selection algorithm
       let selectedType: PowerUpType | null = null;
       for (const config of powerUpTypes) {
         randomValue -= config.probability;
@@ -197,36 +202,38 @@ export const usePowerUps = create<PowerUpsState>((set, get) => ({
       if (selectedType) {
         const config = state.powerUpConfigs[selectedType];
         
-        // Calculate a position in the play area
-        // Keep away from the edges and center (where ball starts)
-        const margin = 50;
-        const centerMargin = 100;
+        // Step 2: Calculate safe positioning for the power-up
+        // Avoid edges (where paddles are) and center (where ball starts)
+        const margin = 50; // Distance from canvas edges
+        const centerMargin = 100; // Distance from center where ball spawns
         const centerX = canvasWidth / 2;
         const centerY = canvasHeight / 2;
         
-        // Generate random positions until we get one that's not too close to the center
+        // Generate random positions until we find a good spot
         let x, y;
         do {
           x = margin + Math.random() * (canvasWidth - 2 * margin);
           y = margin + Math.random() * (canvasHeight - 2 * margin);
         } while (
+          // Avoid spawning too close to the center where ball movements are frequent
           Math.abs(x - centerX) < centerMargin && 
           Math.abs(y - centerY) < centerMargin
         );
         
-        // Create a new power-up
+        // Step 3: Create the power-up object with unique ID and visual properties
         const newPowerUp: SpawnedPowerUp = {
           id: `power-up-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
           type: selectedType,
           x,
           y,
-          radius: 15, // Fixed size for all power-ups
-          color: config.color,
+          radius: 15, // Standard size for all power-ups (consistent visual)
+          color: config.color, // Each power-up type has its own color
         };
         
+        // Step 4: Add to game state and schedule next spawn
         set((state) => ({
           spawnedPowerUps: [...state.spawnedPowerUps, newPowerUp],
-          nextSpawnTime: now + state.spawnInterval,
+          nextSpawnTime: now + state.spawnInterval, // Reset spawn timer
         }));
       }
     }
@@ -234,58 +241,70 @@ export const usePowerUps = create<PowerUpsState>((set, get) => ({
   
   /**
    * Collect a power-up by its ID and activate its effect
-   * @param id The ID of the power-up to collect
-   * @param isPlayerCollecting Whether the player is collecting the power-up (true) or the computer (false)
+   * 
+   * This function handles the core logic of power-up collection and effect assignment.
+   * The key feature is that power-ups are assigned based on who collects them:
+   * - If the player collects a power-up, they get the intended effect
+   * - If the computer collects a power-up, the effects are reversed:
+   *   * Beneficial effects go to the computer instead
+   *   * Detrimental effects are applied to the player instead
+   * 
+   * @param id The unique ID of the power-up to collect
+   * @param isPlayerCollecting Whether the player is collecting (true) or computer (false)
    * @returns The type of the collected power-up, or null if not found
    */
   collectPowerUp: (id, isPlayerCollecting = true) => {
     const { spawnedPowerUps, powerUpConfigs, activePowerUps } = get();
     
-    // Find the power-up by ID
+    // Step 1: Find the power-up by its unique ID
     const powerUpIndex = spawnedPowerUps.findIndex((p) => p.id === id);
-    if (powerUpIndex === -1) return null;
+    if (powerUpIndex === -1) return null; // Power-up not found
     
     const collectedPowerUp = spawnedPowerUps[powerUpIndex];
     const config = powerUpConfigs[collectedPowerUp.type];
     
-    // Remove from spawned power-ups
+    // Step 2: Remove the power-up from the game field (it's been collected)
     set((state) => ({
       spawnedPowerUps: state.spawnedPowerUps.filter((p) => p.id !== id),
     }));
     
-    // Determine the correct target based on who collected the power-up
+    // Step 3: Determine who should receive the power-up effect
     let effectiveTarget = config.target;
     let effectiveType = collectedPowerUp.type;
     
-    // Handle power-up effects based on collector
+    // Handle power-up effect assignment based on who collected it
     if (!isPlayerCollecting) {
-      // Computer collected the power-up
+      // Computer collected the power-up - reverse the intended effects
       if (effectiveTarget === PowerUpTarget.PLAYER) {
-        // Power-up meant to help player - computer gets it instead
+        // Original: Power-up was meant to help the player
+        // New: Since computer collected it, computer gets the benefit instead
         effectiveTarget = PowerUpTarget.COMPUTER;
       } else if (effectiveTarget === PowerUpTarget.COMPUTER) {
-        // Power-up meant to hurt computer - now hurts player instead
+        // Original: Power-up was meant to hurt the computer (like shrink opponent)
+        // New: Since computer collected it, the player gets hurt instead
         effectiveTarget = PowerUpTarget.PLAYER;
       }
-      // For BALL and GAME targets, the effect stays the same but may benefit computer more
+      // Note: For BALL and GAME targets, effects stay the same since they affect the game globally
     } else {
-      // Player collected the power-up - effects work as intended
-      // No changes needed for player collection
+      // Player collected the power-up - effects work as originally intended
+      // No target changes needed - player gets benefits, computer gets detriments
     }
     
-    // Add to active power-ups
+    // Step 4: Create and activate the power-up effect
     const now = Date.now();
     const newActivePowerUp: ActivePowerUp = {
       type: collectedPowerUp.type,
-      endTime: now + config.duration,
-      target: effectiveTarget,
+      endTime: now + config.duration, // Calculate when this effect expires
+      target: effectiveTarget, // Who the effect applies to
     };
     
-    // Replace any existing power-up of the same type
+    // Step 5: Replace any existing power-up of the same type and target
+    // This prevents stacking the same effect multiple times
     const filteredActivePowerUps = activePowerUps.filter(
       (p) => !(p.type === newActivePowerUp.type && p.target === newActivePowerUp.target)
     );
     
+    // Step 6: Add the new power-up to the active effects list
     set({
       activePowerUps: [...filteredActivePowerUps, newActivePowerUp],
     });
@@ -323,40 +342,51 @@ export const usePowerUps = create<PowerUpsState>((set, get) => ({
   },
   
   /**
-   * Get the current ball speed multiplier based on active power-ups
-   * @returns Multiplier for ball speed (> 1 for faster, < 1 for slower)
+   * Calculate the current ball speed multiplier based on active power-ups
+   * 
+   * This function combines multiple ball-affecting power-ups to determine
+   * the final speed modifier. Effects can stack (multiply together).
+   * 
+   * @returns Multiplier for ball speed (> 1 for faster, < 1 for slower, 1 for normal)
    */
   getBallSpeedMultiplier: () => {
     const state = get();
-    let multiplier = 1;
+    let multiplier = 1; // Start with normal speed
     
+    // Apply speed boost effect (makes ball faster)
     if (state.isActive(PowerUpType.SPEED_BOOST, PowerUpTarget.BALL)) {
-      multiplier *= 1.6; // 60% speed increase
+      multiplier *= 1.6; // 60% speed increase - ball becomes harder to track
     }
     
+    // Apply slow motion effect (makes ball slower)
     if (state.isActive(PowerUpType.SLOW_MOTION, PowerUpTarget.BALL)) {
-      multiplier *= 0.6; // 40% speed decrease
+      multiplier *= 0.6; // 40% speed decrease - ball becomes easier to hit
     }
     
+    // Note: If both effects are active, they multiply (1.6 * 0.6 = 0.96, slightly slower than normal)
     return multiplier;
   },
   
   /**
-   * Get the current player paddle height multiplier based on active power-ups
-   * @returns Multiplier for paddle height (> 1 for larger, < 1 for smaller)
+   * Calculate the current player paddle height multiplier based on active power-ups
+   * 
+   * This determines how large or small the player's paddle should be.
+   * Multiple effects can apply simultaneously and will multiply together.
+   * 
+   * @returns Multiplier for paddle height (> 1 for larger, < 1 for smaller, 1 for normal)
    */
   getPlayerPaddleHeightMultiplier: () => {
     const state = get();
-    let multiplier = 1;
+    let multiplier = 1; // Start with normal paddle size
     
-    // Player gets benefit from PADDLE_EXTENDER targeted at them
+    // Beneficial effect: Player collected a paddle extender power-up
     if (state.isActive(PowerUpType.PADDLE_EXTENDER, PowerUpTarget.PLAYER)) {
-      multiplier *= 1.5; // 50% larger paddle
+      multiplier *= 1.5; // 50% larger paddle - easier to hit the ball
     }
     
-    // Player gets debuff from SHRINK_OPPONENT targeted at them (when computer collected it)
+    // Detrimental effect: Computer collected a "shrink opponent" power-up, affecting the player
     if (state.isActive(PowerUpType.SHRINK_OPPONENT, PowerUpTarget.PLAYER)) {
-      multiplier *= 0.6; // 40% smaller paddle
+      multiplier *= 0.6; // 40% smaller paddle - harder to hit the ball
     }
     
     return multiplier;
