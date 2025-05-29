@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { useAudio } from "./useAudio";
-import { usePowerUps } from "./usePowerUps";
+import { usePowerUps, PowerUpType, PowerUpTarget } from "./usePowerUps";
 
 /**
  * Represents who won the game, if anyone
@@ -218,30 +218,63 @@ export const usePingPong = create<PingPongState>((set, get) => {
         const audio = useAudio.getState();
         const powerUps = usePowerUps.getState();
         
-        // Check for multiball power-up activation
-        // If multiball is active and we don't have extra balls, add them
-        if (powerUps.isActive(usePowerUps.getState().powerUpConfigs.MULTI_BALL.type, usePowerUps.getState().powerUpConfigs.MULTI_BALL.target)) {
-          if (state.balls.length <= 1) {
-            // Add 2 extra balls for multiball effect
-            state.addExtraBalls(2);
-          }
-        } else {
-          // Multiball not active, remove extra balls if any exist
-          if (state.balls.length > 1) {
-            state.removeExtraBalls();
-          }
+        // MULTIBALL POWER-UP MANAGEMENT
+        // This section handles the dynamic addition and removal of balls based on power-up state
+        
+        // Step 1: Initialize balls array if empty (game start or after scoring)
+        let currentBalls = [...state.balls];
+        if (currentBalls.length === 0) {
+          const mainBall = state.createMainBall();
+          currentBalls = [mainBall];
+          console.log('Initialized main ball for new round');
         }
         
-        // Ensure we have at least the main ball
-        if (state.balls.length === 0) {
-          state.balls.push(state.createMainBall());
+        // Step 2: Check if multiball power-up is currently active
+        // This power-up spawns additional balls that create strategic chaos
+        const isMultiballActive = powerUps.isActive(PowerUpType.MULTI_BALL, PowerUpTarget.GAME);
+        
+        if (isMultiballActive) {
+          // Multiball is active - ensure we have extra balls for maximum gameplay impact
+          if (currentBalls.length <= 1) {
+            console.log('Activating multiball - adding extra balls');
+            
+            // Step 2a: Verify we have the main ball (required for scoring)
+            const mainBall = currentBalls.find(ball => ball.isMainBall) || state.createMainBall();
+            if (!currentBalls.find(ball => ball.isMainBall)) {
+              currentBalls = [mainBall];
+            }
+            
+            // Step 2b: Spawn 2 additional balls with randomized physics
+            // These balls create visual chaos and strategic depth without affecting scoring
+            for (let i = 0; i < 2; i++) {
+              const extraBall = {
+                id: `extra-ball-${Date.now()}-${i}`, // Unique identifier for tracking
+                x: state.canvasWidth / 2,  // Start from center of screen
+                y: state.canvasHeight / 2, // Start from center of screen
+                // Random horizontal direction with speed between 3-7 pixels per frame
+                speedX: (Math.random() > 0.5 ? 1 : -1) * (3 + Math.random() * 4),
+                // Random vertical direction with speed up to 3 pixels per frame
+                speedY: (Math.random() - 0.5) * 6,
+                isMainBall: false, // Extra balls don't affect scoring - only distraction
+              };
+              currentBalls.push(extraBall);
+            }
+          }
+        } else {
+          // Multiball power-up has expired - clean up extra balls
+          if (currentBalls.length > 1) {
+            console.log('Multiball ended - removing extra balls');
+            // Keep only the main ball to return to normal gameplay
+            const mainBall = currentBalls.find(ball => ball.isMainBall);
+            currentBalls = mainBall ? [mainBall] : [state.createMainBall()];
+          }
         }
         
         // Apply power-up effects to ball speed
         const ballSpeedMultiplier = powerUps.getBallSpeedMultiplier();
         
         // Update all balls using the new multiball system
-        let updatedBalls = state.balls.map(ball => 
+        let updatedBalls = currentBalls.map(ball => 
           state.updateBallPositions(ball, ballSpeedMultiplier)
         );
         
@@ -320,34 +353,46 @@ export const usePingPong = create<PingPongState>((set, get) => {
           newComputerPaddleY = state.computerPaddleY;
         }
         
-        // Remove any balls that have gone off the screen and handle scoring
-        // Only the main ball affects scoring - extra balls just disappear
+        // MULTIBALL SCORING AND CLEANUP SYSTEM
+        // Handle ball removal when they go off-screen and determine scoring
+        
         let ballsToRemove = [];
         
+        // Step 1: Check each ball to see if it has left the game area
         for (let i = 0; i < updatedBalls.length; i++) {
           const ball = updatedBalls[i];
           
-          // Check if ball has gone past the paddles
+          // Check if ball has gone past the left edge (player's side)
           if (ball.x - state.ballSize / 2 <= 0) {
             // Ball went past player paddle - computer scores
+            // IMPORTANT: Only the main ball affects the actual game score
             if (ball.isMainBall && state.isGameStarted && !state.isGameOver && !state.isPaused) {
               shouldScore = true;
               scoringPlayer = "computer";
               console.log("Computer scored a point (main ball)");
+            } else if (!ball.isMainBall) {
+              // Extra balls just disappear silently - no scoring impact
+              console.log("Extra ball removed (left side) - no scoring impact");
             }
             ballsToRemove.push(i);
+            
           } else if (ball.x + state.ballSize / 2 >= state.canvasWidth) {
             // Ball went past computer paddle - player scores
+            // IMPORTANT: Only the main ball affects the actual game score
             if (ball.isMainBall && state.isGameStarted && !state.isGameOver && !state.isPaused) {
               shouldScore = true;
               scoringPlayer = "player";
               console.log("Player scored a point (main ball)");
+            } else if (!ball.isMainBall) {
+              // Extra balls just disappear silently - no scoring impact
+              console.log("Extra ball removed (right side) - no scoring impact");
             }
             ballsToRemove.push(i);
           }
         }
         
-        // Remove balls that went off screen (reverse order to maintain indices)
+        // Step 2: Remove balls that went off screen
+        // Process in reverse order to maintain correct array indices during removal
         for (let i = ballsToRemove.length - 1; i >= 0; i--) {
           updatedBalls.splice(ballsToRemove[i], 1);
         }
